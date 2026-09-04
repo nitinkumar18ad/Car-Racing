@@ -9,7 +9,7 @@ import {
   Vector3,
 } from 'three';
 
-import { CAMERA, RENDER } from './config.js';
+import { CAMERA, MODES, RENDER } from './config.js';
 import { Track } from './track.js';
 import { Car } from './car.js';
 import { ChaseCamera } from './chase-camera.js';
@@ -18,8 +18,29 @@ import { Hud } from './hud.js';
 import { Game } from './game.js';
 import { createLighting, createScenery, createSky, updateShadowFrustum } from './scenery.js';
 
+const MODE_STORAGE_KEY = 'car-racing-game:mode';
+
+function readModeId() {
+  const urlMode = new URLSearchParams(window.location.search).get('mode');
+  const storedMode = (() => {
+    try { return window.localStorage.getItem(MODE_STORAGE_KEY); } catch { return null; }
+  })();
+  const mode = urlMode || storedMode;
+  return mode === MODES.timeLap.id ? MODES.timeLap.id : MODES.circuit.id;
+}
+
+function switchMode(currentModeId) {
+  const nextModeId = currentModeId === MODES.timeLap.id ? MODES.circuit.id : MODES.timeLap.id;
+  try { window.localStorage.setItem(MODE_STORAGE_KEY, nextModeId); } catch { /* Non-fatal. */ }
+
+  const url = new URL(window.location.href);
+  url.searchParams.set('mode', nextModeId);
+  window.location.href = url.toString();
+}
+
 function start() {
   const canvas = document.getElementById('scene');
+  const modeId = readModeId();
 
   /* ── Renderer ──────────────────────────────────────────────────────────
      Construction throws if WebGL is unavailable, which is the one startup
@@ -54,7 +75,7 @@ function start() {
 
   const { sun } = createLighting(scene);
 
-  const track = new Track();
+  const track = new Track(modeId);
   scene.add(track.group);
   scene.add(createScenery(track));
 
@@ -64,7 +85,16 @@ function start() {
   const chaseCamera = new ChaseCamera(camera);
   const input = new Input(window);
   const hud = new Hud(track);
-  const game = new Game({ track, car, camera: chaseCamera, hud, input });
+  const game = new Game({
+    track,
+    car,
+    camera: chaseCamera,
+    hud,
+    input,
+    onModeChange: () => switchMode(track.mode.id),
+  });
+
+  hud.elements.modeButton?.addEventListener('click', () => switchMode(track.mode.id));
 
   hud.hideLoading();
 

@@ -26,14 +26,15 @@ export const State = {
 };
 
 export class Game {
-  constructor({ track, car, camera, hud, input }) {
+  constructor({ track, car, camera, hud, input, onModeChange }) {
     this.track = track;
     this.car = car;
     this.camera = camera;
     this.hud = hud;
     this.input = input;
+    this.onModeChange = onModeChange;
 
-    this.bestLap = loadBestLap();
+    this.bestLap = loadBestLap(this.track.mode.storageKey);
     this.accumulator = 0;
 
     this.reset();
@@ -80,6 +81,9 @@ export class Game {
       bestLap: this.bestLap,
       lapElapsed: this.lapElapsed,
       setNewRecord: this.setNewRecord,
+      label: this.track.mode.label,
+      totalLaps: this.track.mode.totalLaps,
+      resultsTitle: this.track.mode.resultsTitle,
     };
   }
 
@@ -156,15 +160,19 @@ export class Game {
     const length = this.track.length;
     let delta = this.car.trackDistance - this.previousDistance;
 
-    // Unwrap the seam: a delta larger than half the track means we crossed it
-    // rather than teleported.
-    if (delta > length / 2) delta -= length;
-    else if (delta < -length / 2) delta += length;
+    if (this.track.closed) {
+      // Unwrap the seam: a delta larger than half the track means we crossed it
+      // rather than teleported.
+      if (delta > length / 2) delta -= length;
+      else if (delta < -length / 2) delta += length;
+    }
 
     this.totalDistance += delta;
     this.previousDistance = this.car.trackDistance;
 
-    if (this.totalDistance - this.lapStartTotal >= length) {
+    if (this.track.closed && this.totalDistance - this.lapStartTotal >= length) {
+      this.#completeLap();
+    } else if (!this.track.closed && this.totalDistance >= length - 2) {
       this.#completeLap();
     }
   }
@@ -177,16 +185,16 @@ export class Game {
     if (this.bestLap == null || lapTime < this.bestLap) {
       this.bestLap = lapTime;
       this.setNewRecord = true;
-      saveBestLap(lapTime);
+      saveBestLap(lapTime, this.track.mode.storageKey);
     }
 
     this.lapStartTotal += this.track.length;
     this.lapStartTime = this.raceTime;
     this.lap++;
 
-    if (this.lap > RACE.totalLaps) {
+    if (this.lap > this.track.mode.totalLaps) {
       this.state = State.FINISHED;
-      this.lap = RACE.totalLaps;
+      this.lap = this.track.mode.totalLaps;
       this.hud.showResults(this.raceState);
     }
   }
@@ -201,6 +209,11 @@ export class Game {
 
     if (this.input.consume('KeyC')) {
       this.camera.cycleMode();
+    }
+
+    if (this.input.consume('KeyM') && this.onModeChange) {
+      this.onModeChange();
+      return;
     }
 
     if (this.input.consume('KeyP') || this.input.consume('Escape')) {

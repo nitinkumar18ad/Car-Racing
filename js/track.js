@@ -1,7 +1,7 @@
 /**
  * The track.
  *
- * Everything geometric in the game derives from a single closed centreline
+ * Everything geometric in the game derives from a single centreline
  * curve: the asphalt, kerbs, grass, barriers, tree placement, the minimap, lap
  * progress, off-road detection and the car's ride height and body angle.
  *
@@ -24,7 +24,7 @@ import {
   DoubleSide, Vector3, Group,
 } from 'three';
 
-import { TRACK } from './config.js';
+import { MODES, TRACK } from './config.js';
 import {
   createAsphaltTexture, createGrassTexture, createKerbTexture,
   createStartLineTexture, createWallTexture,
@@ -34,7 +34,7 @@ const WORLD_UP = new Vector3(0, 1, 0);
 
 /**
  * Circuit layout, as [x, y, z] control points. Catmull-Rom smooths through all
- * of them and `closed: true` joins the last back to the first.
+ * of them; circuit mode closes the last back to the first.
  *
  * The lap reads: main straight -> fast right sweeper -> climb to a blind crest
  * -> tight left hairpin -> downhill S-chicane -> long sweeping left -> kink
@@ -42,7 +42,7 @@ const WORLD_UP = new Vector3(0, 1, 0);
  */
 const LAYOUT_SCALE = 1.2;
 
-const CONTROL_POINTS = [
+const CIRCUIT_CONTROL_POINTS = [
   // Main straight, heading +X. Start/finish sits at the first point.
   [-340,   0, -250],
   [-180,   0, -253],
@@ -79,6 +79,26 @@ const CONTROL_POINTS = [
   [-370,   0, -198],
 ];
 
+const TIME_LAP_CONTROL_POINTS = [
+  // Point-to-point sprint: a long launch straight, then flowing curves.
+  [-430, 0, -210],
+  [-300, 0, -210],
+  [-160, 0, -210],
+  [ -20, 0, -208],
+  [ 120, 1, -198],
+  [ 230, 3, -160],
+  [ 292, 5,  -82],
+  [ 275, 6,   -6],
+  [ 198, 4,   52],
+  [  88, 2,   72],
+  [ -14, 1,  118],
+  [ -48, 0,  198],
+  [  18, 0,  272],
+  [ 142, 1,  298],
+  [ 290, 2,  292],
+  [ 420, 2,  286],
+];
+
 /* ══════════════════════════════════════════════════════════════════════════
    Geometry helpers
    ══════════════════════════════════════════════════════════════════════════ */
@@ -90,12 +110,13 @@ const CONTROL_POINTS = [
  * for that ring and `uv` with [uA, vA, uB, vB]. One extra ring is emitted at
  * the end, wrapping to sample 0, so the loop closes seamlessly.
  */
-function buildStrip(samples, emit, normalFor) {
-  const ringCount = samples.length + 1;
+function buildStrip(samples, emit, normalFor, closed) {
+  const ringCount = closed ? samples.length + 1 : samples.length;
+  const segmentCount = closed ? samples.length : samples.length - 1;
   const positions = new Float32Array(ringCount * 2 * 3);
   const normals = new Float32Array(ringCount * 2 * 3);
   const uvs = new Float32Array(ringCount * 2 * 2);
-  const indices = new Uint32Array(samples.length * 6);
+  const indices = new Uint32Array(segmentCount * 6);
 
   const a = new Vector3();
   const b = new Vector3();
@@ -105,7 +126,7 @@ function buildStrip(samples, emit, normalFor) {
   for (let ring = 0; ring < ringCount; ring++) {
     // The final ring reuses sample 0's cross-section but keeps the running
     // distance, so the texture does not jump at the seam.
-    const index = ring % samples.length;
+    const index = closed ? ring % samples.length : ring;
     const sample = samples[index];
 
     emit(ring, sample, a, b, uv);
@@ -122,7 +143,7 @@ function buildStrip(samples, emit, normalFor) {
     uvs[t + 2] = uv[2]; uvs[t + 3] = uv[3];
   }
 
-  for (let i = 0; i < samples.length; i++) {
+  for (let i = 0; i < segmentCount; i++) {
     const v = i * 2;
     const o = i * 6;
     indices[o + 0] = v;     indices[o + 1] = v + 1; indices[o + 2] = v + 2;
@@ -149,7 +170,7 @@ function buildStrip(samples, emit, normalFor) {
  * front face point along `up * (latB - latA)`, so a descending ribbon faces down
  * and is silently backface-culled. `surfaceRibbonBetween` handles the ordering.
  */
-function surfaceRibbon(samples, spacing, latA, latB, liftA, liftB, vPerMetre, uSpan) {
+function surfaceRibbon(samples, spacing, latA, latB, liftA, liftB, vPerMetre, uSpan, closed) {
   return buildStrip(
     samples,
     (ring, sample, a, b, uv) => {
@@ -162,6 +183,7 @@ function surfaceRibbon(samples, spacing, latA, latB, liftA, liftB, vPerMetre, uS
       uv[2] = uSpan; uv[3] = distance * vPerMetre;
     },
     (sample, normal) => normal.copy(sample.up),
+    closed,
   );
 }
 
@@ -170,15 +192,15 @@ function surfaceRibbon(samples, spacing, latA, latB, liftA, liftB, vPerMetre, uS
  * the mirrored left/right pieces are naturally expressed. Swaps the pair when the
  * left-hand side puts them in descending order, keeping every surface facing up.
  */
-function surfaceRibbonBetween(samples, spacing, edgeA, edgeB, vPerMetre, uSpan) {
+function surfaceRibbonBetween(samples, spacing, edgeA, edgeB, vPerMetre, uSpan, closed) {
   const [lo, hi] = edgeA.lateral <= edgeB.lateral ? [edgeA, edgeB] : [edgeB, edgeA];
   return surfaceRibbon(
-    samples, spacing, lo.lateral, hi.lateral, lo.lift, hi.lift, vPerMetre, uSpan,
+    samples, spacing, lo.lateral, hi.lateral, lo.lift, hi.lift, vPerMetre, uSpan, closed,
   );
 }
 
 /** A vertical wall standing on the road plane at a fixed lateral offset. */
-function wallRibbon(samples, spacing, lat, height, uPerMetre, inwardSign) {
+function wallRibbon(samples, spacing, lat, height, uPerMetre, inwardSign, closed) {
   return buildStrip(
     samples,
     (ring, sample, a, b, uv) => {
@@ -189,25 +211,36 @@ function wallRibbon(samples, spacing, lat, height, uPerMetre, inwardSign) {
       uv[2] = distance * uPerMetre; uv[3] = 1;
     },
     (sample, normal) => normal.copy(sample.right).multiplyScalar(inwardSign),
+    closed,
   );
 }
 
 /**
- * Moving average over a closed ring of values. `window` is a half-width in
- * samples.
+ * Moving average over a ring or open line of values. `window` is a half-width
+ * in samples.
  *
  * Apply it twice to get a triangular filter, which smooths the *derivative* as
  * well: a single box pass turns a step into a straight ramp, and a ramp still has
  * corners at each end that are plainly visible when the thing being ramped is
  * rolling 18 metres of road.
  */
-function smoothRing(values, window) {
+function smoothValues(values, window, closed) {
   const count = values.length;
   const out = new Float64Array(count);
   for (let i = 0; i < count; i++) {
     let sum = 0;
-    for (let k = -window; k <= window; k++) sum += values[(i + k + count) % count];
-    out[i] = sum / (window * 2 + 1);
+    let hits = 0;
+    for (let k = -window; k <= window; k++) {
+      const index = i + k;
+      if (closed) {
+        sum += values[(index + count) % count];
+        hits++;
+      } else if (index >= 0 && index < count) {
+        sum += values[index];
+        hits++;
+      }
+    }
+    out[i] = sum / hits;
   }
   return out;
 }
@@ -217,10 +250,14 @@ function smoothRing(values, window) {
    ══════════════════════════════════════════════════════════════════════════ */
 
 export class Track {
-  constructor() {
+  constructor(modeId = MODES.circuit.id) {
+    this.mode = modeId === MODES.timeLap.id ? MODES.timeLap : MODES.circuit;
+    this.closed = this.mode.id === MODES.circuit.id;
+    const controlPoints = this.closed ? CIRCUIT_CONTROL_POINTS : TIME_LAP_CONTROL_POINTS;
+
     this.curve = new CatmullRomCurve3(
-      CONTROL_POINTS.map(([x, y, z]) => new Vector3(x * LAYOUT_SCALE, y, z * LAYOUT_SCALE)),
-      true,          // closed loop
+      controlPoints.map(([x, y, z]) => new Vector3(x * LAYOUT_SCALE, y, z * LAYOUT_SCALE)),
+      this.closed,
       'catmullrom',
       0.5,           // tension
     );
@@ -229,7 +266,10 @@ export class Track {
     this.curve.arcLengthDivisions = 8000;
 
     this.samples = this.#buildSamples();
-    this.length = this.samples.length * this.spacing;
+    this.length = this.closed ? this.samples.length * this.spacing : (this.samples.length - 1) * this.spacing;
+    this.timingStartIndex = this.closed ? 0 : Math.round(120 / this.spacing);
+    this.timingStartDistance = this.samples[this.timingStartIndex].distance;
+    this.raceLength = this.closed ? this.length : this.length - this.timingStartDistance;
 
     /** Cursor for the windowed nearest-sample search in `sampleAt()`. */
     this.cursor = 0;
@@ -244,14 +284,14 @@ export class Track {
   #buildSamples() {
     const count = TRACK.samples;
     const totalLength = this.curve.getLength();
-    this.spacing = totalLength / count;
+    this.spacing = totalLength / (this.closed ? count : count - 1);
 
     const samples = [];
 
-    // Pass 1: positions and frames. `t = i / count` (not `count - 1`) because
-    // on a closed curve t=1 is the same point as t=0.
+    // Pass 1: positions and frames. Closed circuits skip t=1 because it is the
+    // same point as t=0; open sprint routes include both endpoints.
     for (let i = 0; i < count; i++) {
-      const t = i / count;
+      const t = this.closed ? i / count : i / (count - 1);
       const position = this.curve.getPointAt(t);
       const tangent = this.curve.getTangentAt(t).normalize();
 
@@ -276,15 +316,15 @@ export class Track {
     const raw = new Float64Array(count);
     const delta = new Vector3();
     for (let i = 0; i < count; i++) {
-      const previous = samples[(i - 1 + count) % count];
-      const next = samples[(i + 1) % count];
+      const previous = samples[this.closed ? (i - 1 + count) % count : Math.max(0, i - 1)];
+      const next = samples[this.closed ? (i + 1) % count : Math.min(count - 1, i + 1)];
       delta.subVectors(next.tangent, previous.tangent);
       raw[i] = delta.dot(samples[i].right) / (2 * this.spacing);
     }
 
     // Smooth curvature before it drives banking, otherwise sampling noise makes
     // the road ripple.
-    const curvature = smoothRing(raw, 14);
+    const curvature = smoothValues(raw, 14, this.closed);
 
     // Pass 3: bank the frames.
     //
@@ -300,7 +340,7 @@ export class Track {
     }
 
     const bankWindow = Math.max(1, Math.round(TRACK.bankSmoothingMetres / this.spacing));
-    const bank = smoothRing(smoothRing(target, bankWindow), bankWindow);
+    const bank = smoothValues(smoothValues(target, bankWindow, this.closed), bankWindow, this.closed);
 
     // Rotating `right` about `tangent` by a positive angle drops its y, which
     // raises the left (outer) edge of a right-hand corner — exactly the lean we
@@ -350,7 +390,7 @@ export class Track {
         surfaceRibbonBetween(samples, spacing,
           { lateral: sign * kerbOuter, lift: TRACK.kerbLift },
           { lateral: sign * grassEdge, lift: 0 },
-          TRACK.grassRepeatPerMetre, TRACK.vergeWidth / grassTileMetres),
+          TRACK.grassRepeatPerMetre, TRACK.vergeWidth / grassTileMetres, this.closed),
         grassMaterial,
       );
       verge.receiveShadow = true;
@@ -368,7 +408,7 @@ export class Track {
         surfaceRibbonBetween(samples, spacing,
           { lateral: sign * halfWidth, lift: TRACK.roadLift },
           { lateral: sign * kerbOuter, lift: TRACK.kerbLift },
-          TRACK.kerbRepeatPerMetre, 1),
+          TRACK.kerbRepeatPerMetre, 1, this.closed),
         kerbMaterial,
       );
       kerb.receiveShadow = true;
@@ -378,7 +418,7 @@ export class Track {
 
     const road = new Mesh(
       surfaceRibbon(samples, spacing, -halfWidth, halfWidth,
-        TRACK.roadLift, TRACK.roadLift, TRACK.asphaltRepeatPerMetre, 1),
+        TRACK.roadLift, TRACK.roadLift, TRACK.asphaltRepeatPerMetre, 1, this.closed),
       new MeshStandardMaterial({
         map: createAsphaltTexture(1),
         roughness: 0.82,
@@ -399,7 +439,7 @@ export class Track {
     for (const sign of [-1, 1]) {
       const wall = new Mesh(
         wallRibbon(samples, spacing, sign * this.wallLateral, TRACK.wallHeight,
-          TRACK.wallRepeatPerMetre, -sign),
+          TRACK.wallRepeatPerMetre, -sign, this.closed),
         wallMaterial,
       );
       wall.castShadow = true;
@@ -409,10 +449,20 @@ export class Track {
     }
 
     this.group.add(this.#buildStartLine());
+    if (!this.closed) this.group.add(this.#buildFinishLine());
   }
 
   /** Chequered strip laid across the road at s = 0. */
   #buildStartLine() {
+    return this.#buildTimingLine('start-line', this.timingStartIndex, 1);
+  }
+
+  /** Chequered strip laid across the road at the end of the sprint. */
+  #buildFinishLine() {
+    return this.#buildTimingLine('finish-line', this.samples.length - 1, -1);
+  }
+
+  #buildTimingLine(name, anchorIndex, direction) {
     const halfWidth = TRACK.roadHalfWidth;
     const depth = 5;                 // metres along the track
     const rings = Math.max(2, Math.round(depth / this.spacing));
@@ -423,7 +473,10 @@ export class Track {
 
     const point = new Vector3();
     for (let i = 0; i <= rings; i++) {
-      const sample = this.samples[i % this.samples.length];
+      const index = this.closed
+        ? (anchorIndex + i * direction + this.samples.length) % this.samples.length
+        : clamp(anchorIndex + i * direction, 0, this.samples.length - 1);
+      const sample = this.samples[index];
       const v = i / rings;
       for (const side of [-1, 1]) {
         point.copy(sample.right).multiplyScalar(side * halfWidth)
@@ -449,8 +502,9 @@ export class Track {
       map: createStartLineTexture(),
       roughness: 0.6,
       metalness: 0,
+      side: DoubleSide,
     }));
-    mesh.name = 'start-line';
+    mesh.name = name;
     return mesh;
   }
 
@@ -482,7 +536,9 @@ export class Track {
     } else {
       const window = 60;
       for (let k = -window; k <= window; k++) {
-        const i = (this.cursor + k + count) % count;
+        const i = this.closed
+          ? (this.cursor + k + count) % count
+          : clamp(this.cursor + k, 0, count - 1);
         const d = horizontalDistanceSq(samples[i].position, position);
         if (d < bestDistanceSq) { bestDistanceSq = d; bestIndex = i; }
       }
@@ -494,7 +550,8 @@ export class Track {
     // into, so `distance` and `lateral` are continuous rather than quantised to
     // sample spacing.
     const forward = this.#projectOntoSegment(bestIndex, position);
-    const backward = this.#projectOntoSegment((bestIndex - 1 + count) % count, position);
+    const backwardIndex = this.closed ? (bestIndex - 1 + count) % count : Math.max(0, bestIndex - 1);
+    const backward = this.#projectOntoSegment(backwardIndex, position);
     return forward.offRadius <= backward.offRadius ? forward : backward;
   }
 
@@ -502,8 +559,9 @@ export class Track {
   #projectOntoSegment(index, position) {
     const samples = this.samples;
     const count = samples.length;
-    const a = samples[index];
-    const b = samples[(index + 1) % count];
+    const segmentIndex = this.closed ? index : Math.min(index, count - 2);
+    const a = samples[segmentIndex];
+    const b = samples[this.closed ? (segmentIndex + 1) % count : segmentIndex + 1];
 
     const segX = b.position.x - a.position.x;
     const segZ = b.position.z - a.position.z;
@@ -530,7 +588,7 @@ export class Track {
 
     return {
       index,
-      distance: a.distance + t * this.spacing,
+      distance: clamp(a.distance + t * this.spacing, 0, this.length),
       lateral,
       height,
       up,
@@ -569,7 +627,7 @@ export class Track {
 
   /** Where the car sits on the grid, and which way it faces. */
   getStartTransform() {
-    const sample = this.samples[0];
+    const sample = this.samples[this.timingStartIndex];
     return {
       position: sample.position.clone().addScaledVector(sample.up, TRACK.roadLift),
       // Yaw uses the car's convention: forward = (-sin yaw, 0, -cos yaw), so
@@ -584,6 +642,10 @@ export class Track {
     const points = [];
     for (let i = 0; i < this.samples.length; i += step) {
       const p = this.samples[i].position;
+      points.push([p.x, p.z]);
+    }
+    if (!this.closed) {
+      const p = this.samples[this.samples.length - 1].position;
       points.push([p.x, p.z]);
     }
     return points;

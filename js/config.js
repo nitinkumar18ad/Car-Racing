@@ -11,6 +11,25 @@ export const RACE = {
   countdownSeconds: 3,
 };
 
+export const MODES = {
+  circuit: {
+    id: 'circuit',
+    name: 'Circuit',
+    label: 'LAP',
+    totalLaps: 3,
+    storageKey: 'car-racing-game:best-lap:circuit',
+    resultsTitle: 'Race Complete',
+  },
+  timeLap: {
+    id: 'time-lap',
+    name: 'Time Lap',
+    label: 'RUN',
+    totalLaps: 1,
+    storageKey: 'car-racing-game:best-lap:time-lap',
+    resultsTitle: 'Time Lap Complete',
+  },
+};
+
 export const TRACK = {
   /** Number of centreline samples. Higher = smoother road, more memory. */
   samples: 2200,
@@ -220,4 +239,4 @@ export const RENDER = {
   maxFrameTime: 0.25,
 };
 
-export const STORAGE_KEY = 'car-racing-game:best-lap';
+export const STORAGE_KEY = MODES.circuit.storageKey;

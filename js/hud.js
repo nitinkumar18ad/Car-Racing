@@ -30,6 +30,15 @@ function formatDelta(milliseconds) {
   return `${sign}${seconds.toFixed(3)}`;
 }
 
+function radians(degrees) {
+  return degrees * Math.PI / 180;
+}
+
+function gaugeAngle(fraction) {
+  const clamped = Math.max(0, Math.min(1, fraction));
+  return -205 + clamped * 250;
+}
+
 export class Hud {
   constructor(track) {
     this.track = track;
@@ -37,6 +46,9 @@ export class Hud {
     this.elements = {
       hud: document.getElementById('hud'),
       loading: document.getElementById('loading'),
+      modeName: document.getElementById('mode-name'),
+      modeButton: document.getElementById('mode-button'),
+      lapLabel: document.getElementById('lap-label'),
       lapCurrent: document.getElementById('lap-current'),
       lapTotal: document.getElementById('lap-total'),
       timeCurrent: document.getElementById('time-current'),
@@ -44,13 +56,16 @@ export class Hud {
       timeBest: document.getElementById('time-best'),
       delta: document.getElementById('delta'),
       speedValue: document.getElementById('speed-value'),
-      gaugeFill: document.getElementById('gauge-fill'),
+      gaugeTicks: document.getElementById('gauge-ticks'),
+      gaugeNumbers: document.getElementById('gauge-numbers'),
+      gaugeNeedle: document.getElementById('gauge-needle'),
       gear: document.getElementById('gear'),
       offroad: document.getElementById('offroad'),
       countdown: document.getElementById('countdown'),
       countdownText: document.getElementById('countdown-text'),
       paused: document.getElementById('paused'),
       results: document.getElementById('results'),
+      resultsTitle: document.getElementById('results-title'),
       resultsRows: document.getElementById('results-rows'),
       resultsTotal: document.getElementById('results-total'),
       resultsBest: document.getElementById('results-best'),
@@ -58,13 +73,7 @@ export class Hud {
       fatalMessage: document.getElementById('fatal-message'),
     };
 
-    this.elements.lapTotal.textContent = String(RACE.totalLaps);
-
-    // The gauge arc is a <path>; measuring it once lets stroke-dashoffset act
-    // as a 0..1 fill without hard-coding the arc length.
-    this.gaugeLength = this.elements.gaugeFill.getTotalLength();
-    this.elements.gaugeFill.style.strokeDasharray = String(this.gaugeLength);
-    this.elements.gaugeFill.style.strokeDashoffset = String(this.gaugeLength);
+    this.setModeInfo(track.mode);
 
     // Cache of last-written values, so we only touch the DOM on change.
     this.shown = {
@@ -73,6 +82,7 @@ export class Hud {
     };
 
     this.#setupMinimap();
+    this.#setupSpeedometer();
   }
 
   /* ── Minimap ─────────────────────────────────────────────────────────── */
@@ -131,7 +141,7 @@ export class Hud {
       if (i === 0) ctx.moveTo(x, y);
       else ctx.lineTo(x, y);
     }
-    ctx.closePath();
+    if (this.track.closed) ctx.closePath();
 
     // Wide dark casing under a lighter core reads as a road at 148px.
     ctx.strokeStyle = 'rgba(0, 0, 0, 0.55)';
@@ -148,6 +158,14 @@ export class Hud {
     ctx.beginPath();
     ctx.arc(sx, sy, 3.2, 0, Math.PI * 2);
     ctx.fill();
+
+    if (!this.track.closed) {
+      const [fx, fy] = project(...this.minimapPath[this.minimapPath.length - 1]);
+      ctx.fillStyle = '#5ce08b';
+      ctx.beginPath();
+      ctx.arc(fx, fy, 3.2, 0, Math.PI * 2);
+      ctx.fill();
+    }
   }
 
   #drawMinimap(car) {
@@ -179,6 +197,52 @@ export class Hud {
 
   /* ── Per-frame update ────────────────────────────────────────────────── */
 
+  #setupSpeedometer() {
+    const ticks = this.elements.gaugeTicks;
+    const numbers = this.elements.gaugeNumbers;
+    if (!ticks || !numbers) return;
+
+    ticks.innerHTML = '';
+    numbers.innerHTML = '';
+
+    for (let i = 0; i <= 50; i++) {
+      const value = i / 5;
+      const major = i % 5 === 0;
+      const redline = value >= 8;
+      const angle = gaugeAngle(value / 10);
+      const a = radians(angle);
+      const inner = major ? 78 : 87;
+      const outer = 101;
+
+      const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      line.setAttribute('x1', String(120 + Math.cos(a) * inner));
+      line.setAttribute('y1', String(140 + Math.sin(a) * inner));
+      line.setAttribute('x2', String(120 + Math.cos(a) * outer));
+      line.setAttribute('y2', String(140 + Math.sin(a) * outer));
+      line.classList.add(major ? 'major' : 'minor');
+      if (redline) line.classList.add('redline');
+      ticks.appendChild(line);
+
+      if (major) {
+        const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        const labelRadius = 63;
+        text.setAttribute('x', String(120 + Math.cos(a) * labelRadius));
+        text.setAttribute('y', String(140 + Math.sin(a) * labelRadius + 6));
+        text.textContent = String(value);
+        if (redline) text.classList.add('redline');
+        numbers.appendChild(text);
+      }
+    }
+
+    this.#setNeedle(0);
+  }
+
+  #setNeedle(fraction) {
+    const needle = this.elements.gaugeNeedle;
+    if (!needle) return;
+    needle.setAttribute('transform', `rotate(${gaugeAngle(fraction) + 90} 120 140)`);
+  }
+
   update(car, race) {
     const el = this.elements;
     const shown = this.shown;
@@ -187,7 +251,7 @@ export class Hud {
     if (speed !== shown.speed) {
       el.speedValue.textContent = String(speed);
       const fraction = Math.min(1, car.speed / CAR.topSpeed);
-      el.gaugeFill.style.strokeDashoffset = String(this.gaugeLength * (1 - fraction));
+      this.#setNeedle(fraction);
       shown.speed = speed;
     }
 
@@ -197,7 +261,7 @@ export class Hud {
       shown.gear = gear;
     }
 
-    const lap = Math.min(race.lap, RACE.totalLaps);
+    const lap = Math.min(race.lap, race.totalLaps);
     if (lap !== shown.lap) {
       el.lapCurrent.textContent = String(lap);
       shown.lap = lap;
@@ -256,6 +320,18 @@ export class Hud {
     this.elements.hud.classList.remove('hidden');
   }
 
+  setModeInfo(mode) {
+    const el = this.elements;
+    if (el.modeName) el.modeName.textContent = mode.name;
+    if (el.modeButton) {
+      el.modeButton.textContent = mode.name;
+      el.modeButton.setAttribute('aria-label', `Current mode: ${mode.name}. Switch mode`);
+    }
+    if (el.lapLabel) el.lapLabel.textContent = mode.label;
+    el.lapTotal.textContent = String(mode.totalLaps);
+    if (el.resultsTitle) el.resultsTitle.textContent = mode.resultsTitle;
+  }
+
   /** `value` is 3, 2, 1 or the string 'GO', or null to hide. */
   showCountdown(value) {
     const el = this.elements;
@@ -283,13 +359,14 @@ export class Hud {
 
   showResults(race) {
     const el = this.elements;
+    if (el.resultsTitle) el.resultsTitle.textContent = race.resultsTitle;
     el.resultsRows.innerHTML = '';
 
     const fastest = race.laps.length ? Math.min(...race.laps) : null;
     race.laps.forEach((time, index) => {
       const row = document.createElement('tr');
       if (time === fastest) row.className = 'best';
-      row.innerHTML = `<td>Lap ${index + 1}</td><td>${formatLapTime(time)}</td>`;
+      row.innerHTML = `<td>${race.label} ${index + 1}</td><td>${formatLapTime(time)}</td>`;
       el.resultsRows.appendChild(row);
     });
 
@@ -319,9 +396,9 @@ export class Hud {
  * any `file://` page — so both of these swallow failures. A missing best lap is
  * a cosmetic loss, not a reason to refuse to start.
  */
-export function loadBestLap() {
+export function loadBestLap(storageKey = STORAGE_KEY) {
   try {
-    const stored = window.localStorage.getItem(STORAGE_KEY);
+    const stored = window.localStorage.getItem(storageKey);
     const value = stored === null ? NaN : Number(stored);
     return Number.isFinite(value) && value > 0 ? value : null;
   } catch {
@@ -329,9 +406,9 @@ export function loadBestLap() {
   }
 }
 
-export function saveBestLap(milliseconds) {
+export function saveBestLap(milliseconds, storageKey = STORAGE_KEY) {
   try {
-    window.localStorage.setItem(STORAGE_KEY, String(Math.round(milliseconds)));
+    window.localStorage.setItem(storageKey, String(Math.round(milliseconds)));
   } catch {
     /* Non-fatal: the session keeps its best lap in memory regardless. */
   }

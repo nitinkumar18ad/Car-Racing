@@ -38,8 +38,12 @@
 
   <!-- Lap / timing, top left -->
   <div class="panel panel-timing">
+    <div class="mode-row">
+      <span class="label">MODE</span>
+      <button id="mode-button" class="mode-button" type="button">Circuit</button>
+    </div>
     <div class="lap-row">
-      <span class="label">LAP</span>
+      <span class="label" id="lap-label">LAP</span>
       <span class="lap-count"><b id="lap-current">1</b><i>/</i><span id="lap-total">3</span></span>
     </div>
     <div class="time-big" id="time-current">0:00.000</div>
@@ -59,10 +63,12 @@
 
   <!-- Speedometer, bottom right -->
   <div class="panel panel-speed">
-    <svg viewBox="0 0 200 130" class="gauge">
-      <path class="gauge-track" d="M 22 112 A 82 82 0 1 1 178 112" />
-      <path class="gauge-fill" id="gauge-fill" d="M 22 112 A 82 82 0 1 1 178 112" />
-      <path class="gauge-redline" d="M 154.6 39.8 A 82 82 0 0 1 178 112" />
+    <svg viewBox="0 0 240 190" class="gauge" aria-hidden="true">
+      <g id="gauge-ticks" class="gauge-ticks"></g>
+      <g id="gauge-numbers" class="gauge-numbers"></g>
+      <line id="gauge-needle" class="gauge-needle" x1="120" y1="140" x2="120" y2="48" />
+      <circle class="gauge-hub-outer" cx="120" cy="140" r="15" />
+      <circle class="gauge-hub-inner" cx="120" cy="140" r="8" />
     </svg>
     <div class="speed-readout">
       <span id="speed-value">0</span>
@@ -78,7 +84,7 @@
   <div class="panel panel-keys">
     <div><kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd> <span>or</span> <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> drive</div>
     <div><kbd>Space</kbd> handbrake &nbsp; <kbd>C</kbd>camera</div>
-    <div><kbd>R</kbd> restart &nbsp; <kbd>P</kbd> pause</div>
+    <div><kbd>M</kbd> mode &nbsp; <kbd>R</kbd> restart &nbsp; <kbd>P</kbd> pause</div>
   </div>
 
 </div>
@@ -97,7 +103,7 @@
 <!-- ── Results ───────────────────────────────────────────────────────────── -->
 <div id="results" class="overlay hidden">
   <div class="card">
-    <h2>Race Complete</h2>
+    <h2 id="results-title">Race Complete</h2>
     <table class="results-table"><tbody id="results-rows"></tbody></table>
     <div class="results-total">
       <span class="label">TOTAL</span><span id="results-total">—</span>
