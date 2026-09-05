@@ -8,15 +8,15 @@
    ══════════════════════════════════════════════════════════════════════════ */
 
 :root {
-  --panel-bg: rgba(9, 12, 18, 0.74);
-  --panel-line: rgba(255, 255, 255, 0.11);
-  --ink: #eef3f8;
-  --ink-dim: rgba(238, 243, 248, 0.5);
-  --ink-faint: rgba(238, 243, 248, 0.32);
-  --accent: #ffc93c;
+  --panel-bg: rgba(10, 14, 18, 0.58);
+  --panel-line: rgba(255, 255, 255, 0.14);
+  --ink: #f4f7f9;
+  --ink-dim: rgba(244, 247, 249, 0.68);
+  --ink-faint: rgba(244, 247, 249, 0.42);
+  --accent: #f4c84a;
   --faster: #5ce08b;
   --slower: #ff6b6b;
-  --corner: 11px;
+  --corner: 8px;
 
   --mono: ui-monospace, "SF Mono", "Cascadia Mono", "Roboto Mono", Menlo, Consolas, monospace;
   --sans: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
@@ -51,33 +51,31 @@ html, body {
 
 .panel {
   position: fixed;
+  overflow: hidden;
+  isolation: isolate;
   background: var(--panel-bg);
   border: 1px solid var(--panel-line);
-  backdrop-filter: blur(14px) saturate(1.3);
-  -webkit-backdrop-filter: blur(14px) saturate(1.3);
-  /* Clipped top-left + bottom-right corners read as "instrument", not "card". */
-  clip-path: polygon(
-    var(--corner) 0, 100% 0, 100% calc(100% - var(--corner)),
-    calc(100% - var(--corner)) 100%, 0 100%, 0 var(--corner)
-  );
-  padding: 13px 16px;
-  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
+  border-radius: var(--corner);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  padding: 12px 14px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.26);
 }
 
 .label {
-  font-size: 9.5px;
+  font-size: 10px;
   font-weight: 700;
-  letter-spacing: 0.16em;
-  color: var(--ink-faint);
+  letter-spacing: 0;
+  color: var(--ink-dim);
   text-transform: uppercase;
 }
 
 /* ── HUD: lap + timing (top left) ───────────────────────────────────────── */
 
 .panel-timing {
-  top: 18px;
-  left: 18px;
-  min-width: 194px;
+  top: 16px;
+  left: 16px;
+  width: 228px;
 }
 
 .lap-row {
@@ -87,25 +85,62 @@ html, body {
   margin-bottom: 4px;
 }
 
+.mode-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 30px;
+  margin-bottom: 10px;
+  padding-bottom: 9px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.mode-button {
+  appearance: none;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--ink);
+  min-height: 28px;
+  padding: 4px 12px;
+  font-family: var(--sans);
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+  cursor: pointer;
+  transition: background 140ms ease, border-color 140ms ease;
+}
+
+.mode-button:hover,
+.mode-button:focus-visible {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.28);
+  outline: none;
+}
+
+.mode-button:focus-visible {
+  box-shadow: 0 0 0 2px rgba(244, 200, 74, 0.35);
+}
+
 .lap-count {
   font-family: var(--mono);
-  font-size: 15px;
-  letter-spacing: 0.02em;
+  font-size: 14px;
+  letter-spacing: 0;
 }
-.lap-count b { font-weight: 700; color: var(--ink); font-size: 19px; }
+.lap-count b { font-weight: 700; color: var(--ink); font-size: 20px; }
 .lap-count i { color: var(--ink-faint); font-style: normal; margin: 0 1px; }
 .lap-count span { color: var(--ink-dim); }
 
 .time-big {
   font-family: var(--mono);
-  font-size: 29px;
-  font-weight: 600;
-  letter-spacing: -0.02em;
+  font-size: 34px;
+  font-weight: 700;
+  letter-spacing: 0;
   font-variant-numeric: tabular-nums;
   line-height: 1.1;
-  margin: 2px 0 8px;
-  /* Faint amber glow so the running clock reads as "live". */
-  text-shadow: 0 0 22px rgba(255, 201, 60, 0.22);
+  margin: 8px 0 13px;
 }
 
 .time-row {
@@ -116,7 +151,14 @@ html, body {
   font-size: 13px;
   font-variant-numeric: tabular-nums;
   color: var(--ink-dim);
-  padding: 1.5px 0;
+  padding: 2px 0;
+}
+.time-row span:first-child {
+  font-family: var(--sans);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0;
+  color: var(--ink-faint);
 }
 .time-row span:last-child { color: rgba(238, 243, 248, 0.82); }
 
@@ -127,7 +169,7 @@ html, body {
   font-variant-numeric: tabular-nums;
   height: 17px;
   margin-top: 5px;
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
 }
 .delta.faster { color: var(--faster); }
 .delta.slower { color: var(--slower); }
@@ -135,51 +177,88 @@ html, body {
 /* ── HUD: minimap (top right) ───────────────────────────────────────────── */
 
 .panel-map {
-  top: 18px;
-  right: 18px;
+  top: 16px;
+  right: 16px;
   padding: 10px;
   line-height: 0;
 }
 
-#minimap { width: 148px; height: 148px; display: block; }
+#minimap {
+  width: 150px;
+  height: 150px;
+  display: block;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.03);
+}
 
 /* ── HUD: speedometer (bottom right) ────────────────────────────────────── */
 
 .panel-speed {
-  bottom: 18px;
-  right: 18px;
-  width: 208px;
-  padding: 14px 14px 10px;
+  bottom: 16px;
+  right: 16px;
+  width: 286px;
+  padding: 10px 12px 12px;
+  background: rgba(0, 0, 0, 0.72);
 }
 
-.gauge { width: 100%; display: block; overflow: visible; }
+.gauge {
+  width: 100%;
+  display: block;
+  overflow: visible;
+}
 
-.gauge-track,
-.gauge-fill,
-.gauge-redline {
-  fill: none;
+.gauge-ticks line {
+  stroke: rgba(255, 255, 255, 0.92);
+  stroke-linecap: square;
+}
+.gauge-ticks .minor { stroke-width: 2; opacity: 0.82; }
+.gauge-ticks .major { stroke-width: 5; }
+.gauge-ticks .redline { stroke: #ff2446; }
+
+.gauge-numbers text {
+  fill: rgba(255, 255, 255, 0.94);
+  font-family: var(--sans);
+  font-size: 23px;
+  font-weight: 600;
+  text-anchor: middle;
+  dominant-baseline: middle;
+}
+.gauge-numbers .redline { fill: #fff; }
+
+.gauge-needle {
+  stroke: #ff1438;
+  stroke-width: 10;
   stroke-linecap: round;
+  transform-origin: 120px 140px;
+  transition: transform 80ms linear;
 }
-.gauge-track   { stroke: rgba(255, 255, 255, 0.10); stroke-width: 9; }
-.gauge-redline { stroke: rgba(255, 107, 107, 0.5); stroke-width: 9; }
-.gauge-fill {
-  stroke: var(--accent);
-  stroke-width: 9;
-  filter: drop-shadow(0 0 9px rgba(255, 201, 60, 0.55));
-  /* dashoffset is driven from JS; dasharray is measured at runtime. */
-  transition: stroke-dashoffset 60ms linear;
+
+.gauge-hub-outer {
+  fill: #050505;
+  stroke: rgba(255, 255, 255, 0.55);
+  stroke-width: 3;
+}
+
+.gauge-hub-inner {
+  fill: rgba(255, 255, 255, 0.9);
+  stroke: rgba(0, 0, 0, 0.75);
+  stroke-width: 2;
 }
 
 .speed-readout {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 15px;
   text-align: center;
-  margin-top: -46px;
   font-family: var(--mono);
   font-variant-numeric: tabular-nums;
+  pointer-events: none;
 }
 .speed-readout span {
-  font-size: 42px;
+  font-size: 26px;
   font-weight: 700;
-  letter-spacing: -0.035em;
+  letter-spacing: 0;
   line-height: 1;
 }
 .speed-readout small {
@@ -187,15 +266,15 @@ html, body {
   font-family: var(--sans);
   font-size: 9px;
   font-weight: 700;
-  letter-spacing: 0.2em;
-  color: var(--ink-faint);
+  letter-spacing: 0;
+  color: var(--ink-dim);
   margin-top: 3px;
 }
 
 .gear {
   position: absolute;
-  bottom: 14px;
-  left: 16px;
+  bottom: 17px;
+  left: 18px;
   font-family: var(--mono);
   font-size: 22px;
   font-weight: 700;
@@ -207,7 +286,7 @@ html, body {
   display: block;
   font-family: var(--sans);
   font-size: 8px;
-  letter-spacing: 0.18em;
+  letter-spacing: 0;
   color: var(--ink-faint);
   margin-bottom: 3px;
 }
@@ -215,24 +294,30 @@ html, body {
 /* ── HUD: controls (bottom left) ────────────────────────────────────────── */
 
 .panel-keys {
-  bottom: 18px;
-  left: 18px;
-  font-size: 11px;
+  bottom: 16px;
+  left: 16px;
+  font-size: 12px;
   color: var(--ink-dim);
   line-height: 2.1;
-  padding: 11px 15px;
+  padding: 10px 12px;
 }
 .panel-keys span { color: var(--ink-faint); margin: 0 1px; }
 
 kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 25px;
+  min-height: 25px;
   font-family: var(--mono);
-  font-size: 10px;
-  background: rgba(255, 255, 255, 0.09);
+  font-size: 11px;
+  font-weight: 700;
+  background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 4px;
-  padding: 2px 5px;
-  margin-right: 2px;
-  color: rgba(238, 243, 248, 0.85);
+  border-radius: 5px;
+  padding: 2px 6px;
+  margin-right: 3px;
+  color: var(--ink);
 }
 
 /* ── Off-track warning ──────────────────────────────────────────────────── */
@@ -259,32 +344,42 @@ kbd {
 
 #countdown {
   position: fixed;
-  inset: 0;
+  top: 26px;
+  left: 50%;
+  width: min(260px, calc(100vw - 32px));
+  height: 104px;
   display: grid;
   place-items: center;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.76);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 10px;
+  box-shadow: 0 14px 38px rgba(0, 0, 0, 0.34);
   pointer-events: none;
+  z-index: 30;
 }
 
 #countdown span {
   font-family: var(--mono);
-  font-size: 168px;
-  font-weight: 700;
-  letter-spacing: -0.05em;
+  font-size: 68px;
+  font-weight: 800;
+  letter-spacing: 0;
   color: var(--ink);
-  text-shadow: 0 10px 60px rgba(0, 0, 0, 0.75);
+  line-height: 1;
+  text-shadow: none;
   /* Re-triggered from JS by restarting the animation on each tick. */
-  animation: countPop 0.6s cubic-bezier(0.2, 1.5, 0.4, 1) both;
+  animation: countPop 0.65s cubic-bezier(0.2, 1, 0.3, 1) both;
 }
 #countdown span.go {
-  font-size: 132px;
+  font-size: 58px;
   color: var(--faster);
-  text-shadow: 0 0 70px rgba(92, 224, 139, 0.55);
+  text-shadow: none;
 }
 
 @keyframes countPop {
-  0%   { transform: scale(2.1); opacity: 0; }
-  35%  { transform: scale(1);   opacity: 1; }
-  100% { transform: scale(1);   opacity: 0.9; }
+  0%   { transform: translateY(8px) scale(0.92); opacity: 0; }
+  35%  { transform: translateY(0) scale(1); opacity: 1; }
+  100% { transform: translateY(0) scale(1); opacity: 1; }
 }
 
 /* ── Full-screen overlays: loading, paused, results, fatal ──────────────── */
@@ -303,10 +398,7 @@ kbd {
 .card {
   background: rgba(13, 17, 24, 0.94);
   border: 1px solid var(--panel-line);
-  clip-path: polygon(
-    18px 0, 100% 0, 100% calc(100% - 18px),
-    calc(100% - 18px) 100%, 0 100%, 0 18px
-  );
+  border-radius: 10px;
   padding: 34px 40px;
   min-width: 330px;
   text-align: center;
@@ -331,7 +423,7 @@ kbd {
 .loading-title {
   font-size: 34px;
   font-weight: 800;
-  letter-spacing: 0.3em;
+  letter-spacing: 0;
   margin-bottom: 22px;
   /* Amber-to-white sweep: reads as speed without needing motion. */
   background: linear-gradient(96deg, var(--accent), #fff 55%, var(--accent));
@@ -356,7 +448,7 @@ kbd {
 .loading-note {
   margin-top: 15px;
   font-size: 10px;
-  letter-spacing: 0.2em;
+  letter-spacing: 0;
   color: var(--ink-faint);
   text-transform: uppercase;
 }
@@ -386,7 +478,7 @@ kbd {
   font-size: 10px;
   font-family: var(--sans);
   font-weight: 700;
-  letter-spacing: 0.14em;
+  letter-spacing: 0;
 }
 .results-table tr.best td { color: var(--faster); }
 
@@ -407,7 +499,7 @@ kbd {
   margin-top: 11px;
   font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.14em;
+  letter-spacing: 0;
   color: var(--accent);
   text-transform: uppercase;
   min-height: 14px;
@@ -419,11 +511,19 @@ kbd {
 
 @media (max-width: 720px), (max-height: 520px) {
   .panel-keys { display: none; }
+  .panel { --corner: 8px; }
+  .panel-timing { left: 12px; top: 12px; width: 190px; padding: 10px 12px; }
+  .panel-map { right: 12px; top: 12px; }
+  .mode-row { min-height: 30px; margin-bottom: 7px; padding-bottom: 8px; }
+  .mode-button { min-height: 28px; padding: 4px 9px; font-size: 10px; }
+  .lap-count b { font-size: 18px; }
   .panel-map  { padding: 7px; }
   #minimap    { width: 92px; height: 92px; }
-  .panel-speed { width: 158px; padding: 11px 11px 8px; }
-  .speed-readout span { font-size: 32px; }
-  .speed-readout { margin-top: -35px; }
+  .panel-speed { right: 12px; bottom: 12px; width: 206px; padding: 8px 9px 10px; }
+  .speed-readout { bottom: 12px; }
+  .speed-readout span { font-size: 20px; }
+  .gauge-numbers text { font-size: 21px; }
+  .gauge-needle { stroke-width: 9; }
   .time-big { font-size: 23px; }
   .gear { font-size: 17px; }
   #countdown span { font-size: 108px; }
