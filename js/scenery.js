@@ -12,13 +12,16 @@
  */
 
 import {
-  BackSide, BoxGeometry, BufferAttribute, BufferGeometry, CylinderGeometry,
-  DirectionalLight, FogExp2, Group, HemisphereLight, InstancedMesh, Matrix4, Mesh,
-  MeshBasicMaterial, MeshStandardMaterial, Quaternion, SphereGeometry, Vector3,
+  BackSide, BoxGeometry, BufferAttribute, BufferGeometry, Color, CylinderGeometry,
+  DirectionalLight, DoubleSide, FogExp2, Group, HemisphereLight, IcosahedronGeometry,
+  InstancedBufferAttribute, InstancedMesh, Matrix4, Mesh, MeshBasicMaterial,
+  MeshStandardMaterial, PlaneGeometry, Quaternion, SphereGeometry, Vector3,
 } from 'three';
 
 import { TRACK, WORLD } from './config.js';
-import { createSkyTexture } from './textures.js';
+import {
+  createBarkTexture, createFoliageTexture, createGantryBannerTexture, createSkyTexture,
+} from './textures.js';
 
 /** Deterministic RNG so the scenery is laid out identically on every load. */
 function makeRandom(seed) {
@@ -125,7 +128,7 @@ function mergeGeometries(geometries) {
   let indexCount = 0;
   for (const geometry of geometries) {
     vertexCount += geometry.attributes.position.count;
-    indexCount += geometry.index.count;
+    indexCount += geometry.index ? geometry.index.count : geometry.attributes.position.count;
   }
 
   const position = new Float32Array(vertexCount * 3);
@@ -137,16 +140,24 @@ function mergeGeometries(geometries) {
   let indexOffset = 0;
   for (const geometry of geometries) {
     position.set(geometry.attributes.position.array, vertexOffset * 3);
-    normal.set(geometry.attributes.normal.array, vertexOffset * 3);
-    uv.set(geometry.attributes.uv.array, vertexOffset * 2);
+    if (geometry.attributes.normal) {
+      normal.set(geometry.attributes.normal.array, vertexOffset * 3);
+    }
+    if (geometry.attributes.uv) {
+      uv.set(geometry.attributes.uv.array, vertexOffset * 2);
+    }
 
-    // Indices are local to their own geometry, so they shift by however many
-    // vertices have already been written.
-    const source = geometry.index.array;
-    for (let i = 0; i < source.length; i++) index[indexOffset + i] = source[i] + vertexOffset;
+    if (geometry.index) {
+      const source = geometry.index.array;
+      for (let i = 0; i < source.length; i++) index[indexOffset + i] = source[i] + vertexOffset;
+      indexOffset += source.length;
+    } else {
+      const count = geometry.attributes.position.count;
+      for (let i = 0; i < count; i++) index[indexOffset + i] = i + vertexOffset;
+      indexOffset += count;
+    }
 
     vertexOffset += geometry.attributes.position.count;
-    indexOffset += source.length;
     geometry.dispose();
   }
 
@@ -158,23 +169,34 @@ function mergeGeometries(geometries) {
   return merged;
 }
 
-/** A tapered trunk that forks into three branches reaching up into the canopy. */
+/** Realistic tapered trunk with root flare and organic branches. */
 function buildTrunkGeometry() {
   const parts = [];
 
-  const trunk = new CylinderGeometry(0.20, 0.42, 2.6, 8);
-  trunk.translate(0, 1.3, 0);
+  // Root flare at ground
+  const root = new CylinderGeometry(0.32, 0.54, 1.2, 10);
+  root.translate(0, 0.6, 0);
+  parts.push(root);
+
+  // Main trunk body
+  const trunk = new CylinderGeometry(0.20, 0.34, 3.0, 10);
+  trunk.translate(0, 2.4, 0);
   parts.push(trunk);
 
-  for (let i = 0; i < 3; i++) {
-    const branch = new CylinderGeometry(0.08, 0.18, 1.9, 6);
-    // Stand it on its own base, lean it out, swing that lean around, then lift
-    // the whole thing to the fork. Order matters: `rotateY` after `rotateZ` is
-    // what turns one leaning branch into three pointing different ways.
-    branch.translate(0, 0.95, 0);
-    branch.rotateZ(0.52);
-    branch.rotateY((i / 3) * Math.PI * 2 + 0.4);
-    branch.translate(0, 2.35, 0);
+  // Organic branches reaching into canopy clusters
+  const branchDefs = [
+    { radius: 0.14, len: 2.3, rotZ: 0.54, rotY: 0.4, pos: [0, 3.2, 0] },
+    { radius: 0.14, len: 2.5, rotZ: 0.56, rotY: 2.3, pos: [0, 3.4, 0] },
+    { radius: 0.13, len: 2.2, rotZ: 0.50, rotY: 4.2, pos: [0, 3.5, 0] },
+    { radius: 0.12, len: 1.9, rotZ: 0.22, rotY: 1.2, pos: [0, 4.2, 0] },
+  ];
+
+  for (const b of branchDefs) {
+    const branch = new CylinderGeometry(b.radius * 0.5, b.radius, b.len, 8);
+    branch.translate(0, b.len / 2, 0);
+    branch.rotateZ(b.rotZ);
+    branch.rotateY(b.rotY);
+    branch.translate(...b.pos);
     parts.push(branch);
   }
 
@@ -182,45 +204,61 @@ function buildTrunkGeometry() {
 }
 
 /**
- * A broad, round, lumpy canopy.
- *
- * A bare sphere reads as a lollipop, so each vertex is pushed in and out along
- * its own radius by a sum of three sinusoids of its direction. That's smooth and
- * seamless (it's a function of direction, so the sphere's wrap-around costs
- * nothing) and deterministic, unlike sampling a random number per vertex, which
- * would just look like static.
+ * Realistic layered foliage canopy with volumetric leaf cards and spherical normal transfer.
  */
 function buildCanopyGeometry() {
-  const canopy = new SphereGeometry(2.5, 16, 12);
-  const position = canopy.attributes.position;
-  const vertex = new Vector3();
-  const direction = new Vector3();
+  const parts = [];
 
-  for (let i = 0; i < position.count; i++) {
-    vertex.fromBufferAttribute(position, i);
-    direction.copy(vertex).normalize();
+  // 7 cluster centers that shape an organic, majestic crown
+  const clusters = [
+    { pos: [0, 5.8, 0], radius: 2.6 },
+    { pos: [-1.4, 4.9, -0.9], radius: 2.2 },
+    { pos: [1.4, 4.9, -0.8], radius: 2.2 },
+    { pos: [-1.3, 4.7, 1.1], radius: 2.2 },
+    { pos: [1.3, 4.7, 1.1], radius: 2.2 },
+    { pos: [-1.8, 3.8, 0.1], radius: 2.0 },
+    { pos: [1.8, 3.8, 0.0], radius: 2.0 },
+  ];
 
-    const lump = 1
-      + 0.11 * Math.sin(direction.x * 4.7 + direction.y * 3.1)
-      + 0.09 * Math.sin(direction.y * 5.3 + direction.z * 4.1)
-      + 0.07 * Math.sin(direction.z * 6.1 + direction.x * 5.7);
+  for (const cluster of clusters) {
+    const [cx, cy, cz] = cluster.pos;
+    const r = cluster.radius;
 
-    vertex.multiplyScalar(lump);
-    // Wider than tall, and shallower underneath, so it sits over the fork
-    // instead of swallowing the trunk.
-    vertex.x *= 1.18;
-    vertex.z *= 1.18;
-    vertex.y *= 0.92;
-    if (vertex.y < 0) vertex.y *= 0.62;
+    // Cross-quad leaf cards rotated around Y
+    for (let a = 0; a < 3; a++) {
+      const plane = new PlaneGeometry(r * 1.9, r * 1.6);
+      plane.rotateY((a / 3) * Math.PI + a * 0.15);
+      plane.translate(cx, cy, cz);
+      parts.push(plane);
+    }
 
-    position.setXYZ(i, vertex.x, vertex.y, vertex.z);
+    // Horizontal tilted leaf card for top/bottom canopy depth
+    const cap = new PlaneGeometry(r * 1.8, r * 1.8);
+    cap.rotateX(Math.PI / 2);
+    cap.rotateZ(0.6);
+    cap.translate(cx, cy, cz);
+    parts.push(cap);
+
+    // Inner foliage cloud for density
+    const ico = new SphereGeometry(r * 0.78, 8, 6);
+    ico.translate(cx, cy, cz);
+    parts.push(ico);
   }
 
-  canopy.translate(0, 4.6, 0);
-  // The displacement invalidated the sphere's normals; without this the lumps
-  // are there but flat-lit, so they don't read as lumps.
-  canopy.computeVertexNormals();
-  return canopy;
+  const merged = mergeGeometries(parts);
+
+  // Spherical normal transfer: normals radiate outward from tree crown center (0, 4.8, 0)
+  // This gives the tree canopy luscious, continuous, 3D volumetric shading like AAA games.
+  const pos = merged.attributes.position;
+  const norm = merged.attributes.normal;
+  const crownCenter = new Vector3(0, 4.8, 0);
+  const dir = new Vector3();
+  for (let i = 0; i < pos.count; i++) {
+    dir.set(pos.getX(i), pos.getY(i), pos.getZ(i)).sub(crownCenter).normalize();
+    norm.setXYZ(i, dir.x, dir.y, dir.z);
+  }
+
+  return merged;
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -253,40 +291,67 @@ export function createScenery(track) {
 
   const trunks = new InstancedMesh(
     buildTrunkGeometry(),
-    new MeshStandardMaterial({ color: 0x5b4530, roughness: 0.94, metalness: 0 }),
+    new MeshStandardMaterial({
+      map: createBarkTexture(),
+      roughness: 0.88,
+      metalness: 0.04,
+    }),
     WORLD.treeCount,
   );
   const foliage = new InstancedMesh(
     buildCanopyGeometry(),
-    new MeshStandardMaterial({ color: 0x4c8a37, roughness: 0.88, metalness: 0 }),
+    new MeshStandardMaterial({
+      map: createFoliageTexture(),
+      alphaTest: 0.35,
+      roughness: 0.74,
+      metalness: 0.05,
+      side: DoubleSide,
+      shadowSide: DoubleSide,
+    }),
     WORLD.treeCount,
   );
+  foliage.instanceColor = new InstancedBufferAttribute(new Float32Array(WORLD.treeCount * 3), 3);
   trunks.castShadow = true;
+  trunks.receiveShadow = true;
   foliage.castShadow = true;
+  foliage.receiveShadow = true;
   trunks.name = 'tree-trunks';
   foliage.name = 'tree-foliage';
+
+  const leafPalette = [
+    new Color(0x326922),
+    new Color(0x43852b),
+    new Color(0x569a35),
+    new Color(0x3a7527),
+    new Color(0x62a33c),
+    new Color(0x2d5f1f),
+  ];
 
   for (let i = 0; i < WORLD.treeCount; i++) {
     const sample = samples[(random() * samples.length) | 0];
     const side = random() < 0.5 ? -1 : 1;
     // Well clear of the barrier, scattered out into the verge.
     const lateral = side * (barrier + 6 + random() * (TRACK.vergeWidth - 12));
-    const height = 0.72 + random() * 0.85;
+    const height = 0.85 + random() * 0.95;
 
     track.groundPoint(sample, lateral, position);
-    scale.set(height * (0.85 + random() * 0.3), height, height * (0.85 + random() * 0.3));
+    scale.set(height * (0.9 + random() * 0.25), height, height * (0.9 + random() * 0.25));
     // A few degrees of lean, so the rows don't look stamped.
     quaternion.setFromAxisAngle(
       new Vector3(random() - 0.5, 0, random() - 0.5).normalize(),
-      (random() - 0.5) * 0.09,
+      (random() - 0.5) * 0.08,
     );
 
     matrix.compose(position, quaternion, scale);
     trunks.setMatrixAt(i, matrix);
     foliage.setMatrixAt(i, matrix);
+
+    const col = leafPalette[(random() * leafPalette.length) | 0];
+    foliage.setColorAt(i, col);
   }
   trunks.instanceMatrix.needsUpdate = true;
   foliage.instanceMatrix.needsUpdate = true;
+  if (foliage.instanceColor) foliage.instanceColor.needsUpdate = true;
   group.add(trunks, foliage);
 
   /* ── Distance markers ───────────────────────────────────────────────── */
@@ -325,7 +390,30 @@ export function createScenery(track) {
 
   /* ── Start/finish gantry ────────────────────────────────────────────── */
 
-  group.add(createStartGantry(track));
+  if (track.closed) {
+    group.add(createMotorsportGantry({
+      track,
+      sampleIndex: 0,
+      title: 'START / FINISH',
+      subtitle: 'APEX GRAND PRIX CIRCUIT',
+      isFinish: false,
+    }));
+  } else {
+    group.add(createMotorsportGantry({
+      track,
+      sampleIndex: track.timingStartIndex,
+      title: 'START',
+      subtitle: 'POINT-TO-POINT SPRINT',
+      isFinish: false,
+    }));
+    group.add(createMotorsportGantry({
+      track,
+      sampleIndex: track.timingFinishIndex,
+      title: 'FINISH',
+      subtitle: 'SPEED TRAP TIMING',
+      isFinish: true,
+    }));
+  }
 
   return group;
 }
@@ -334,47 +422,107 @@ const FORWARD_Z = new Vector3(0, 0, 1);
 const ONE = new Vector3(1, 1, 1);
 const HIDDEN = new Vector3(0, -9999, 0);
 
-/** A simple arch over the start line, so the lap boundary is unmistakable. */
-function createStartGantry(track) {
+/**
+ * Grand motorsport gantry with dual steel lattice columns, overhead crossbeam truss,
+ * double-sided textured racing banner, and 5-pod start light cluster.
+ */
+function createMotorsportGantry({ track, sampleIndex, title, subtitle, isFinish = false }) {
   const gantry = new Group();
-  gantry.name = 'start-gantry';
+  gantry.name = isFinish ? 'finish-gantry' : 'start-gantry';
 
-  const sample = track.samples[0];
-  const halfWidth = TRACK.roadHalfWidth + TRACK.kerbWidth + 2.2;
-  const postHeight = 7.4;
+  const safeIndex = Math.max(0, Math.min(track.samples.length - 1, sampleIndex));
+  const sample = track.samples[safeIndex];
+  const halfWidth = TRACK.roadHalfWidth + TRACK.kerbWidth + 2.4;
+  const postHeight = 8.8;
 
-  const steel = new MeshStandardMaterial({ color: 0x9aa2ad, roughness: 0.45, metalness: 0.72 });
-  const banner = new MeshStandardMaterial({ color: 0x16283f, roughness: 0.6, metalness: 0.1 });
+  const steel = new MeshStandardMaterial({ color: 0xb4bcc7, roughness: 0.35, metalness: 0.85 });
+  const darkSteel = new MeshStandardMaterial({ color: 0x242830, roughness: 0.5, metalness: 0.7 });
+  const bannerMat = new MeshStandardMaterial({
+    map: createGantryBannerTexture({ title, subtitle, isFinish }),
+    roughness: 0.4,
+    metalness: 0.2,
+    side: DoubleSide,
+  });
+  const lightHousing = new MeshStandardMaterial({ color: 0x111317, roughness: 0.7, metalness: 0.3 });
+  const lightLamp = new MeshStandardMaterial({
+    color: isFinish ? 0x22ff88 : 0xff1e40,
+    emissive: isFinish ? 0x11dd66 : 0xff1030,
+    emissiveIntensity: 1.6,
+    roughness: 0.2,
+  });
 
-  const postGeometry = new CylinderGeometry(0.34, 0.4, postHeight, 10);
-  postGeometry.translate(0, postHeight / 2, 0);
+  // Calculate rotation across track:
+  const acrossAngle = Math.atan2(sample.right.x, sample.right.z) - Math.PI / 2;
 
-  const position = new Vector3();
+  // Dual lattice columns on each side of the track
+  const postGeom = new CylinderGeometry(0.24, 0.32, postHeight, 10);
+  postGeom.translate(0, postHeight / 2, 0);
+
+  const subPostGeom = new CylinderGeometry(0.16, 0.20, postHeight, 8);
+  subPostGeom.translate(0, postHeight / 2, 0);
+
+  const posA = new Vector3();
+  const posB = new Vector3();
   for (const side of [-1, 1]) {
-    const post = new Mesh(postGeometry, steel);
-    track.groundPoint(sample, side * halfWidth, position);
-    post.position.copy(position);
-    post.castShadow = true;
-    gantry.add(post);
+    const colA = new Mesh(postGeom, steel);
+    track.groundPoint(sample, side * halfWidth, posA);
+    colA.position.copy(posA);
+    colA.castShadow = true;
+
+    const colB = new Mesh(subPostGeom, darkSteel);
+    track.groundPoint(sample, side * (halfWidth - 0.7), posB);
+    colB.position.copy(posB);
+    colB.castShadow = true;
+
+    gantry.add(colA, colB);
   }
 
-  // Cross beam and banner, spanning between the posts.
+  // Cross beam truss: upper and lower rails
   const span = halfWidth * 2;
-  const beam = new Mesh(new BoxGeometry(span, 0.42, 0.5), steel);
-  const sign = new Mesh(new BoxGeometry(span * 0.62, 1.5, 0.16), banner);
+  const topRail = new Mesh(new BoxGeometry(span, 0.34, 0.42), steel);
+  topRail.position.copy(sample.position);
+  topRail.position.y += postHeight - 0.15;
+  topRail.rotation.y = acrossAngle;
+  topRail.castShadow = true;
 
-  beam.position.copy(sample.position);
-  beam.position.y += postHeight - 0.2;
+  const bottomRail = new Mesh(new BoxGeometry(span, 0.24, 0.36), darkSteel);
+  bottomRail.position.copy(sample.position);
+  bottomRail.position.y += postHeight - 1.85;
+  bottomRail.rotation.y = acrossAngle;
+  bottomRail.castShadow = true;
+
+  // High-res double-sided banner board
+  const signWidth = span * 0.72;
+  const signHeight = 1.45;
+  const sign = new Mesh(new BoxGeometry(signWidth, signHeight, 0.14), bannerMat);
   sign.position.copy(sample.position);
-  sign.position.y += postHeight - 1.5;
-
-  // Rotate both to lie across the track.
-  const acrossAngle = Math.atan2(sample.right.x, sample.right.z) - Math.PI / 2;
-  beam.rotation.y = acrossAngle;
+  sign.position.y += postHeight - 1.0;
   sign.rotation.y = acrossAngle;
-  beam.castShadow = true;
   sign.castShadow = true;
 
-  gantry.add(beam, sign);
+  // 5 Start / Finish lights mounted below the banner
+  const lightBar = new Group();
+  lightBar.position.copy(sample.position);
+  lightBar.position.y += postHeight - 2.15;
+  lightBar.rotation.y = acrossAngle;
+
+  const housingGeom = new BoxGeometry(0.55, 0.55, 0.28);
+  const podGeom = new CylinderGeometry(0.20, 0.20, 0.12, 14);
+  podGeom.rotateX(Math.PI / 2);
+
+  const lightCount = 5;
+  const spacing = 0.85;
+  for (let k = 0; k < lightCount; k++) {
+    const xOff = (k - (lightCount - 1) / 2) * spacing;
+    const housing = new Mesh(housingGeom, lightHousing);
+    housing.position.set(xOff, 0, 0);
+    const lampFront = new Mesh(podGeom, lightLamp);
+    lampFront.position.set(xOff, 0, 0.14);
+    const lampBack = new Mesh(podGeom, lightLamp);
+    lampBack.position.set(xOff, 0, -0.14);
+    lightBar.add(housing, lampFront, lampBack);
+  }
+
+  gantry.add(topRail, bottomRail, sign, lightBar);
   return gantry;
 }

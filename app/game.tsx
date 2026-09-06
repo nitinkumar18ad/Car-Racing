@@ -28,7 +28,6 @@ export default function Game() {
         </div>
         <div className="panel panel-map"><canvas id="minimap" aria-label="Track map" /></div>
         <div className="panel panel-speed">
-          <svg className="gauge" viewBox="0 0 240 190" aria-hidden="true"><g id="gauge-ticks" className="gauge-ticks" /><g id="gauge-numbers" className="gauge-numbers" /><line id="gauge-needle" className="gauge-needle" x1="120" y1="140" x2="120" y2="48" /><circle className="gauge-hub-outer" cx="120" cy="140" r="15" /><circle className="gauge-hub-inner" cx="120" cy="140" r="8" /></svg>
           <div className="speed-readout"><span id="speed-value">000</span><small>KM/H</small></div><div id="gear" className="gear">N</div>
         </div>
         <div className="panel panel-keys"><div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> DRIVE</div><div><kbd>SPACE</kbd> DRIFT</div><div><kbd>M</kbd> MODE <kbd>C</kbd> CAMERA <kbd>R</kbd> RESTART</div></div>

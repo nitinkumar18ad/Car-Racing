@@ -5,14 +5,14 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 const loader = new GLTFLoader();
 
-function setProceduralCarVisible(car: any, visible: boolean) {
-  car.mesh.children.forEach((child: any) => {
+function setProceduralCarVisible(car, visible) {
+  car.mesh.children.forEach((child) => {
     if (child.name === 'real-car-model') return;
     child.visible = visible;
   });
 }
 
-export async function loadModelAssets(track: any, car: any, scenery: any) {
+export async function loadModelAssets(track, car, scenery) {
   // Hide boxy primitives upfront
   setProceduralCarVisible(car, false);
 
@@ -51,7 +51,7 @@ export async function loadModelAssets(track: any, car: any, scenery: any) {
     model.position.set(-center.x, -floor, -center.z);
 
     // 4. Configure photorealistic shaders, clearcoat metallic paint, and crisp shadows
-    model.traverse((node: any) => {
+    model.traverse((node) => {
       if (node.isMesh) {
         node.castShadow = true;
         node.receiveShadow = true;

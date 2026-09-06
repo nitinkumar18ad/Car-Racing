@@ -17,6 +17,7 @@ import { Input } from './input.js';
 import { Hud } from './hud.js';
 import { Game } from './game.js';
 import { createLighting, createScenery, createSky, updateShadowFrustum } from './scenery.js';
+import { loadModelAssets } from './models.js';
 
 const MODE_STORAGE_KEY = 'car-racing-game:mode';
 
@@ -77,7 +78,8 @@ function start() {
 
   const track = new Track(modeId);
   scene.add(track.group);
-  scene.add(createScenery(track));
+  const scenery = createScenery(track);
+  scene.add(scenery);
 
   const car = new Car(track);
   scene.add(car.mesh);
@@ -96,7 +98,10 @@ function start() {
 
   hud.elements.modeButton?.addEventListener('click', () => switchMode(track.mode.id));
 
-  hud.hideLoading();
+  // Load realistic 3D car model, then dismiss loading overlay
+  loadModelAssets(track, car, scenery).finally(() => {
+    hud.hideLoading();
+  });
 
   /* ── Resize ────────────────────────────────────────────────────────── */
 

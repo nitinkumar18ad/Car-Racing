@@ -197,78 +197,37 @@ html, body {
   bottom: 16px;
   right: 16px;
   width: 286px;
-  padding: 10px 12px 12px;
+  min-height: 142px;
+  padding: 18px 12px 12px;
   background: rgba(0, 0, 0, 0.72);
 }
 
-.gauge {
-  width: 100%;
-  display: block;
-  overflow: visible;
-}
-
-.gauge-ticks line {
-  stroke: rgba(255, 255, 255, 0.92);
-  stroke-linecap: square;
-}
-.gauge-ticks .minor { stroke-width: 2; opacity: 0.82; }
-.gauge-ticks .major { stroke-width: 5; }
-.gauge-ticks .redline { stroke: #ff2446; }
-
-.gauge-numbers text {
-  fill: rgba(255, 255, 255, 0.94);
-  font-family: var(--sans);
-  font-size: 23px;
-  font-weight: 600;
-  text-anchor: middle;
-  dominant-baseline: middle;
-}
-.gauge-numbers .redline { fill: #fff; }
-
-.gauge-needle {
-  stroke: #ff1438;
-  stroke-width: 10;
-  stroke-linecap: round;
-  transform-origin: 120px 140px;
-  transition: transform 80ms linear;
-}
-
-.gauge-hub-outer {
-  fill: #050505;
-  stroke: rgba(255, 255, 255, 0.55);
-  stroke-width: 3;
-}
-
-.gauge-hub-inner {
-  fill: rgba(255, 255, 255, 0.9);
-  stroke: rgba(0, 0, 0, 0.75);
-  stroke-width: 2;
-}
-
 .speed-readout {
-  position: absolute;
-  left: 0;
   right: 0;
-  bottom: 15px;
+  top: 21px;
   text-align: center;
   font-family: var(--mono);
   font-variant-numeric: tabular-nums;
   pointer-events: none;
 }
 .speed-readout span {
-  font-size: 26px;
+  display: block;
+  color: var(--ink);
+  font-size: 76px;
   font-weight: 700;
   letter-spacing: 0;
-  line-height: 1;
+  line-height: 0.92;
 }
+.speed-readout span.speed-warn { color: var(--accent); }
+.speed-readout span.speed-danger { color: #ff2446; }
 .speed-readout small {
   display: block;
   font-family: var(--sans);
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 700;
-  letter-spacing: 0;
+  letter-spacing: 0.14em;
   color: var(--ink-dim);
-  margin-top: 3px;
+  margin-top: 10px;
 }
 
 .gear {
@@ -519,11 +478,10 @@ kbd {
   .lap-count b { font-size: 18px; }
   .panel-map  { padding: 7px; }
   #minimap    { width: 92px; height: 92px; }
-  .panel-speed { right: 12px; bottom: 12px; width: 206px; padding: 8px 9px 10px; }
-  .speed-readout { bottom: 12px; }
-  .speed-readout span { font-size: 20px; }
-  .gauge-numbers text { font-size: 21px; }
-  .gauge-needle { stroke-width: 9; }
+  .panel-speed { right: 12px; bottom: 12px; width: 206px; min-height: 104px; padding: 14px 9px 10px; }
+  .speed-readout { top: 16px; }
+  .speed-readout span { font-size: 54px; }
+  .speed-readout small { font-size: 8px; margin-top: 7px; }
   .time-big { font-size: 23px; }
   .gear { font-size: 17px; }
   #countdown span { font-size: 108px; }

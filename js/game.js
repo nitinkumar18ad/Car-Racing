@@ -172,7 +172,7 @@ export class Game {
 
     if (this.track.closed && this.totalDistance - this.lapStartTotal >= length) {
       this.#completeLap();
-    } else if (!this.track.closed && this.totalDistance >= length - 2) {
+    } else if (!this.track.closed && (this.totalDistance >= this.track.raceLength - 3 || this.car.trackDistance >= this.track.timingFinishDistance - 1)) {
       this.#completeLap();
     }
   }

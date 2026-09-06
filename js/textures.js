@@ -254,29 +254,264 @@ export function createWallTexture(repeatX) {
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
-   Start / finish chequer.
+   Start / finish chequer & timing line.
    Not tiled — one texture spanning the whole strip, so ClampToEdge.
    ══════════════════════════════════════════════════════════════════════════ */
 
 export function createStartLineTexture() {
   const squares = 24;
-  const cell = 16;
+  const rows = 4;
+  const cell = 32;
   const W = squares * cell;
-  const H = cell * 3;
+  const H = rows * cell;
   const ctx = surface(W, H);
 
-  ctx.fillStyle = '#f2f4f7';
+  // Background white
+  ctx.fillStyle = '#f8fafc';
   ctx.fillRect(0, 0, W, H);
-  ctx.fillStyle = '#16181d';
-  for (let row = 0; row < 3; row++) {
+
+  // Dark chequer tiles
+  ctx.fillStyle = '#0f1217';
+  for (let row = 0; row < rows; row++) {
     for (let col = 0; col < squares; col++) {
-      if ((row + col) % 2 === 0) ctx.fillRect(col * cell, row * cell, cell, cell);
+      if ((row + col) % 2 === 0) {
+        ctx.fillRect(col * cell, row * cell, cell, cell);
+      }
     }
+  }
+
+  // Solid white timing boundary lines on leading and trailing edges
+  const borderHeight = Math.max(4, Math.round(cell * 0.18));
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, W, borderHeight);
+  ctx.fillRect(0, H - borderHeight, W, borderHeight);
+
+  // Subtle tire skid overlay on the line for realism
+  const random = makeRandom(0x4a18f);
+  ctx.fillStyle = 'rgba(10, 12, 16, 0.16)';
+  for (let t = 0; t < 6; t++) {
+    const tx = (0.15 + random() * 0.7) * W;
+    const tw = 28 + random() * 40;
+    ctx.fillRect(tx, 0, tw, H);
   }
 
   const texture = new CanvasTexture(ctx.canvas);
   texture.wrapS = ClampToEdgeWrapping;
   texture.wrapT = ClampToEdgeWrapping;
+  texture.colorSpace = SRGBColorSpace;
+  texture.anisotropy = 8;
+  return texture;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Motorsport Gantry Banner Texture
+   High-resolution double-sided banner for start/finish gantries.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+export function createGantryBannerTexture({ title = 'START / FINISH', subtitle = 'APEX GRAND PRIX CIRCUIT', isFinish = false } = {}) {
+  const W = 1024;
+  const H = 256;
+  const ctx = surface(W, H);
+
+  // Carbon fiber dark woven background
+  const bgGrad = ctx.createLinearGradient(0, 0, 0, H);
+  bgGrad.addColorStop(0, '#10141b');
+  bgGrad.addColorStop(0.5, '#181d26');
+  bgGrad.addColorStop(1, '#0c0f14');
+  ctx.fillStyle = bgGrad;
+  ctx.fillRect(0, 0, W, H);
+
+  // Carbon weave micro-pattern
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.035)';
+  for (let y = 0; y < H; y += 4) {
+    for (let x = 0; x < W; x += 8) {
+      if ((x + y) % 8 === 0) ctx.fillRect(x, y, 4, 4);
+    }
+  }
+
+  // Accent borders: gold/cyan/red racing stripes
+  const accentColor = isFinish ? '#ff2a4b' : '#f5c400';
+  const secondaryAccent = isFinish ? '#ffffff' : '#00e5ff';
+
+  ctx.fillStyle = accentColor;
+  ctx.fillRect(0, 0, W, 10);
+  ctx.fillRect(0, H - 10, W, 10);
+
+  ctx.fillStyle = secondaryAccent;
+  ctx.fillRect(0, 10, W, 3);
+  ctx.fillRect(0, H - 13, W, 3);
+
+  // Checkered side flags
+  const flagCols = 8;
+  const flagRows = 6;
+  const fw = 14;
+  const fh = Math.round((H - 36) / flagRows);
+
+  for (const side of [0, 1]) {
+    const startX = side === 0 ? 20 : W - 20 - flagCols * fw;
+    for (let r = 0; r < flagRows; r++) {
+      for (let c = 0; c < flagCols; c++) {
+        ctx.fillStyle = (r + c) % 2 === 0 ? '#ffffff' : '#14181f';
+        ctx.fillRect(startX + c * fw, 18 + r * fh, fw, fh);
+      }
+    }
+  }
+
+  // Glowing center title
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+
+  // Subtitle (circuit/timing label)
+  ctx.font = '700 24px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+  ctx.letterSpacing = '5px';
+  ctx.fillStyle = accentColor;
+  ctx.shadowColor = accentColor;
+  ctx.shadowBlur = 10;
+  ctx.fillText(subtitle, W / 2, 70);
+
+  // Main bold title
+  ctx.font = '900 italic 94px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+  ctx.letterSpacing = '3px';
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+  ctx.shadowBlur = 16;
+  ctx.fillStyle = '#ffffff';
+  ctx.fillText(title, W / 2, 145);
+
+  // Inner glow stroke
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = accentColor;
+  ctx.strokeText(title, W / 2, 145);
+  ctx.shadowBlur = 0;
+
+  // Bottom timing bar indicator
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
+  ctx.fillRect(W / 2 - 280, 205, 560, 6);
+  ctx.fillStyle = secondaryAccent;
+  ctx.fillRect(W / 2 - 80, 204, 160, 8);
+
+  const texture = new CanvasTexture(ctx.canvas);
+  texture.wrapS = ClampToEdgeWrapping;
+  texture.wrapT = ClampToEdgeWrapping;
+  texture.colorSpace = SRGBColorSpace;
+  texture.anisotropy = 8;
+  return texture;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Realistic Wood Bark Texture
+   Organic vertical furrowed bark with rich grain and tonal variation.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+export function createBarkTexture() {
+  const W = 512;
+  const H = 512;
+  const ctx = surface(W, H);
+  const random = makeRandom(0x3d7b8);
+
+  // Base deep wood tone
+  ctx.fillStyle = '#3c2b1d';
+  ctx.fillRect(0, 0, W, H);
+
+  // Vertical bark ridges and fibrous striations
+  for (let x = 0; x < W; x += 2) {
+    const val = 0.5 + 0.5 * Math.sin(x * 0.18) + (random() - 0.5) * 0.4;
+    const r = Math.round(48 + val * 38);
+    const g = Math.round(34 + val * 26);
+    const b = Math.round(22 + val * 18);
+    ctx.fillStyle = `rgb(${r},${g},${b})`;
+    ctx.fillRect(x, 0, 2 + Math.floor(random() * 3), H);
+  }
+
+  // Deep vertical fissures
+  ctx.fillStyle = 'rgba(15, 10, 6, 0.65)';
+  for (let i = 0; i < 48; i++) {
+    const fx = random() * W;
+    const fw = 2 + random() * 4;
+    ctx.fillRect(fx, 0, fw, H);
+  }
+
+  // Weathering and subtle moss speckles
+  for (let i = 0; i < 600; i++) {
+    const px = random() * W;
+    const py = random() * H;
+    const isMoss = random() < 0.25;
+    ctx.fillStyle = isMoss ? 'rgba(74, 94, 52, 0.4)' : 'rgba(110, 85, 60, 0.35)';
+    ctx.fillRect(px, py, 2 + random() * 4, 3 + random() * 8);
+  }
+
+  return toTexture(ctx.canvas, { repeatX: 1, repeatY: 3, anisotropy: 8 });
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Realistic Foliage Cluster Texture
+   Organic leaf branches with rich alpha transparency and sunlight translucency.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+export function createFoliageTexture() {
+  const W = 512;
+  const H = 512;
+  const ctx = surface(W, H);
+  const random = makeRandom(0x6f2a1);
+
+  ctx.clearRect(0, 0, W, H);
+
+  // Twigs / central branches
+  ctx.strokeStyle = '#382618';
+  ctx.lineWidth = 5;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(W / 2, H * 0.95);
+  ctx.quadraticCurveTo(W / 2 + 20, H * 0.5, W / 2, H * 0.1);
+  ctx.stroke();
+
+  for (let b = 0; b < 10; b++) {
+    const by = H * (0.2 + b * 0.07);
+    const side = b % 2 === 0 ? -1 : 1;
+    ctx.beginPath();
+    ctx.lineWidth = 3;
+    ctx.moveTo(W / 2, by);
+    ctx.quadraticCurveTo(W / 2 + side * 60, by - 15, W / 2 + side * 140, by - 30);
+    ctx.stroke();
+  }
+
+  // Dense multi-layered leaves
+  const leafColors = [
+    '#275518', '#346d20', '#44852a', '#549f33',
+    '#68b83e', '#7ecc4a', '#8fd957', '#3c5a21',
+  ];
+
+  const leafCount = 420;
+  for (let i = 0; i < leafCount; i++) {
+    const angle = random() * Math.PI * 2;
+    const dist = Math.pow(random(), 0.65) * 210;
+    const lx = W / 2 + Math.cos(angle) * dist * 1.08;
+    const ly = H / 2 + Math.sin(angle) * dist * 0.88;
+
+    const leafLength = 18 + random() * 22;
+    const leafWidth = 9 + random() * 12;
+    const rot = angle + (random() - 0.5) * 1.2;
+
+    ctx.save();
+    ctx.translate(lx, ly);
+    ctx.rotate(rot);
+
+    ctx.fillStyle = leafColors[(random() * leafColors.length) | 0];
+    ctx.beginPath();
+    ctx.ellipse(0, 0, leafLength, leafWidth, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Leaf center vein highlight
+    ctx.strokeStyle = 'rgba(180, 230, 120, 0.45)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(-leafLength * 0.8, 0);
+    ctx.lineTo(leafLength * 0.8, 0);
+    ctx.stroke();
+
+    ctx.restore();
+  }
+
+  const texture = new CanvasTexture(ctx.canvas);
   texture.colorSpace = SRGBColorSpace;
   texture.anisotropy = 8;
   return texture;

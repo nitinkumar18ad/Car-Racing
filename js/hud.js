@@ -30,15 +30,6 @@ function formatDelta(milliseconds) {
   return `${sign}${seconds.toFixed(3)}`;
 }
 
-function radians(degrees) {
-  return degrees * Math.PI / 180;
-}
-
-function gaugeAngle(fraction) {
-  const clamped = Math.max(0, Math.min(1, fraction));
-  return -205 + clamped * 250;
-}
-
 export class Hud {
   constructor(track) {
     this.track = track;
@@ -56,9 +47,6 @@ export class Hud {
       timeBest: document.getElementById('time-best'),
       delta: document.getElementById('delta'),
       speedValue: document.getElementById('speed-value'),
-      gaugeTicks: document.getElementById('gauge-ticks'),
-      gaugeNumbers: document.getElementById('gauge-numbers'),
-      gaugeNeedle: document.getElementById('gauge-needle'),
       gear: document.getElementById('gear'),
       offroad: document.getElementById('offroad'),
       countdown: document.getElementById('countdown'),
@@ -82,7 +70,6 @@ export class Hud {
     };
 
     this.#setupMinimap();
-    this.#setupSpeedometer();
   }
 
   /* ── Minimap ─────────────────────────────────────────────────────────── */
@@ -153,17 +140,20 @@ export class Hud {
     ctx.stroke();
 
     // Start line marker.
-    const [sx, sy] = project(...this.minimapPath[0]);
+    const startSample = this.track.samples[this.track.timingStartIndex] || this.track.samples[0];
+    const [sx, sy] = project(startSample.position.x, startSample.position.z);
     ctx.fillStyle = '#ffc93c';
     ctx.beginPath();
-    ctx.arc(sx, sy, 3.2, 0, Math.PI * 2);
+    ctx.arc(sx, sy, 3.4, 0, Math.PI * 2);
     ctx.fill();
 
     if (!this.track.closed) {
-      const [fx, fy] = project(...this.minimapPath[this.minimapPath.length - 1]);
+      const finishIndex = this.track.timingFinishIndex != null ? this.track.timingFinishIndex : this.track.samples.length - 1;
+      const finishSample = this.track.samples[finishIndex];
+      const [fx, fy] = project(finishSample.position.x, finishSample.position.z);
       ctx.fillStyle = '#5ce08b';
       ctx.beginPath();
-      ctx.arc(fx, fy, 3.2, 0, Math.PI * 2);
+      ctx.arc(fx, fy, 3.4, 0, Math.PI * 2);
       ctx.fill();
     }
   }
@@ -197,52 +187,6 @@ export class Hud {
 
   /* ── Per-frame update ────────────────────────────────────────────────── */
 
-  #setupSpeedometer() {
-    const ticks = this.elements.gaugeTicks;
-    const numbers = this.elements.gaugeNumbers;
-    if (!ticks || !numbers) return;
-
-    ticks.innerHTML = '';
-    numbers.innerHTML = '';
-
-    for (let i = 0; i <= 50; i++) {
-      const value = i / 5;
-      const major = i % 5 === 0;
-      const redline = value >= 8;
-      const angle = gaugeAngle(value / 10);
-      const a = radians(angle);
-      const inner = major ? 78 : 87;
-      const outer = 101;
-
-      const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-      line.setAttribute('x1', String(120 + Math.cos(a) * inner));
-      line.setAttribute('y1', String(140 + Math.sin(a) * inner));
-      line.setAttribute('x2', String(120 + Math.cos(a) * outer));
-      line.setAttribute('y2', String(140 + Math.sin(a) * outer));
-      line.classList.add(major ? 'major' : 'minor');
-      if (redline) line.classList.add('redline');
-      ticks.appendChild(line);
-
-      if (major) {
-        const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-        const labelRadius = 63;
-        text.setAttribute('x', String(120 + Math.cos(a) * labelRadius));
-        text.setAttribute('y', String(140 + Math.sin(a) * labelRadius + 6));
-        text.textContent = String(value);
-        if (redline) text.classList.add('redline');
-        numbers.appendChild(text);
-      }
-    }
-
-    this.#setNeedle(0);
-  }
-
-  #setNeedle(fraction) {
-    const needle = this.elements.gaugeNeedle;
-    if (!needle) return;
-    needle.setAttribute('transform', `rotate(${gaugeAngle(fraction) + 90} 120 140)`);
-  }
-
   update(car, race) {
     const el = this.elements;
     const shown = this.shown;
@@ -250,10 +194,10 @@ export class Hud {
     const speed = Math.round(car.speedKmh);
     if (speed !== shown.speed) {
       el.speedValue.textContent = String(speed);
-      const fraction = Math.min(1, car.speed / CAR.topSpeed);
-      this.#setNeedle(fraction);
       shown.speed = speed;
     }
+    el.speedValue.classList.toggle('speed-warn', car.speed >= CAR.topSpeed * 0.6 && car.speed < CAR.topSpeed * 0.85);
+    el.speedValue.classList.toggle('speed-danger', car.speed >= CAR.topSpeed * 0.85);
 
     const gear = car.getGear();
     if (gear !== shown.gear) {

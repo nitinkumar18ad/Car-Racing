@@ -269,7 +269,9 @@ export class Track {
     this.length = this.closed ? this.samples.length * this.spacing : (this.samples.length - 1) * this.spacing;
     this.timingStartIndex = this.closed ? 0 : Math.round(120 / this.spacing);
     this.timingStartDistance = this.samples[this.timingStartIndex].distance;
-    this.raceLength = this.closed ? this.length : this.length - this.timingStartDistance;
+    this.timingFinishIndex = this.closed ? 0 : this.samples.length - 1 - Math.round(50 / this.spacing);
+    this.timingFinishDistance = this.samples[this.timingFinishIndex].distance;
+    this.raceLength = this.closed ? this.length : this.timingFinishDistance - this.timingStartDistance;
 
     /** Cursor for the windowed nearest-sample search in `sampleAt()`. */
     this.cursor = 0;
@@ -459,12 +461,12 @@ export class Track {
 
   /** Chequered strip laid across the road at the end of the sprint. */
   #buildFinishLine() {
-    return this.#buildTimingLine('finish-line', this.samples.length - 1, -1);
+    return this.#buildTimingLine('finish-line', this.timingFinishIndex, 1);
   }
 
   #buildTimingLine(name, anchorIndex, direction) {
     const halfWidth = TRACK.roadHalfWidth;
-    const depth = 5;                 // metres along the track
+    const depth = 3.0;               // metres along the track (4 rows of 0.75m square tiles)
     const rings = Math.max(2, Math.round(depth / this.spacing));
     const positions = [];
     const normals = [];
@@ -488,7 +490,7 @@ export class Track {
       }
       if (i < rings) {
         const base = i * 2;
-        indices.push(base, base + 1, base + 2, base + 1, base + 3, base + 2);
+        indices.push(base, base + 2, base + 1, base + 1, base + 2, base + 3);
       }
     }
 
@@ -503,12 +505,13 @@ export class Track {
       roughness: 0.6,
       metalness: 0,
       side: DoubleSide,
+      polygonOffset: true,
+      polygonOffsetFactor: -2,
+      polygonOffsetUnits: -2,
     }));
     mesh.name = name;
     return mesh;
   }
-
-  /* ── Queries ─────────────────────────────────────────────────────────── */
 
   /**
    * Locate a world position relative to the track.
