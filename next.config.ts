@@ -2,7 +2,10 @@ import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
-  allowedDevOrigins: ["192.168.137.1"],
+  output: process.env.NEXT_EXPORT === 'true' ? 'export' : undefined,
+  images: {
+    unoptimized: true,
+  },
 };
 
 export default nextConfig;

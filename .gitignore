@@ -1,4 +1,27 @@
-node_modules
-.next
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Next.js build output
+.next/
+out/
+
+# Build and TypeScript caches
 *.tsbuildinfo
+next-env.d.ts.bak
+
+# Logs
 *.dev.log
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment files
+.env*.local
+.env
+
+# OS Files
+.DS_Store
+Thumbs.db
