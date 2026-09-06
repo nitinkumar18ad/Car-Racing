@@ -1,26 +1,23 @@
 /**
- * Scenery, sky and lighting.
+ * Scenery, sky, lighting, roadside flora, grandstands and safety barriers.
  *
- * Two performance rules shape this file:
- *
- * - Roadside objects are `InstancedMesh`, so hundreds of trees and markers cost
- *   a handful of draw calls rather than hundreds.
- * - The directional light's shadow frustum is kept small and moved to follow the
- *   car each frame. A tight ortho box over 2048px gives crisp shadows near the
- *   car; a box big enough to cover the whole circuit would need a 16k map to
- *   look the same.
+ * Performance guidelines:
+ * - Roadside objects (trees, bushes, markers, tire walls, sponsor boards) are InstancedMesh,
+ *   so thousands of environmental props cost only a handful of draw calls.
+ * - The directional light's shadow frustum is tightly budgeted to follow the car every frame.
  */
 
 import {
   BackSide, BoxGeometry, BufferAttribute, BufferGeometry, Color, CylinderGeometry,
-  DirectionalLight, DoubleSide, FogExp2, Group, HemisphereLight, IcosahedronGeometry,
+  DirectionalLight, DoubleSide, FogExp2, Group, HemisphereLight,
   InstancedBufferAttribute, InstancedMesh, Matrix4, Mesh, MeshBasicMaterial,
   MeshStandardMaterial, PlaneGeometry, Quaternion, SphereGeometry, Vector3,
 } from 'three';
 
 import { TRACK, WORLD } from './config.js';
 import {
-  createBarkTexture, createFoliageTexture, createGantryBannerTexture, createSkyTexture,
+  createBarkTexture, createBushTexture, createFoliageTexture, createGantryBannerTexture,
+  createGrandstandCrowdTexture, createSkyTexture, createSponsorBannerTexture, createTireWallTexture,
 } from './textures.js';
 
 /** Deterministic RNG so the scenery is laid out identically on every load. */
@@ -39,8 +36,6 @@ function makeRandom(seed) {
    ══════════════════════════════════════════════════════════════════════════ */
 
 export function createSky() {
-  // Rendered on the inside of a big sphere. `depthWrite: false` keeps it from
-  // occluding anything despite being drawn first.
   const sky = new Mesh(
     new SphereGeometry(1100, 40, 24),
     new MeshBasicMaterial({
@@ -56,18 +51,18 @@ export function createSky() {
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
-   Lighting
+   Lighting & Atmosphere
    ══════════════════════════════════════════════════════════════════════════ */
 
 export function createLighting(scene) {
   scene.fog = new FogExp2(WORLD.horizonColor, WORLD.fogDensity);
 
   const hemisphere = new HemisphereLight(
-    WORLD.horizonColor, WORLD.groundColor, WORLD.hemiIntensity,
+    0xa8d2f5, WORLD.groundColor, WORLD.hemiIntensity,
   );
   scene.add(hemisphere);
 
-  const sun = new DirectionalLight(0xfff3dc, WORLD.sunIntensity);
+  const sun = new DirectionalLight(0xfff4e0, WORLD.sunIntensity);
   sun.position.set(...WORLD.sunPosition);
   sun.castShadow = true;
 
@@ -79,28 +74,16 @@ export function createLighting(scene) {
   sun.shadow.camera.bottom = -radius;
   sun.shadow.camera.near = 1;
   sun.shadow.camera.far = 520;
-  // Just enough bias to kill acne on the near-flat road without detaching the
-  // car's shadow from its wheels.
-  sun.shadow.bias = -0.0006;
-  sun.shadow.normalBias = 0.028;
-
+  sun.shadow.bias = -0.0003;
+  sun.shadow.normalBias = 0.05;
   scene.add(sun);
-  // A DirectionalLight aims at its target, which must be in the scene graph for
-  // its matrix to update.
-  scene.add(sun.target);
 
-  return { sun, hemisphere };
+  return sun;
 }
 
-/**
- * Slide the shadow frustum along with the car.
- *
- * The light keeps its direction (so shadows never swing around); only the
- * position and target move. Snapping to a grid the size of one shadow texel
- * stops the shadow edges from shimmering as the box slides.
- */
 const SUN_DIRECTION = new Vector3();
 export function updateShadowFrustum(sun, focus) {
+  if (!sun || !sun.target || !focus) return;
   SUN_DIRECTION.set(...WORLD.sunPosition).normalize();
 
   const texelSize = (WORLD.shadowRadius * 2) / WORLD.shadowMapSize;
@@ -111,18 +94,9 @@ export function updateShadowFrustum(sun, focus) {
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
-   Trees
+   Geometry Concatenation Helper
    ══════════════════════════════════════════════════════════════════════════ */
 
-/**
- * Concatenate several indexed geometries into one.
- *
- * An `InstancedMesh` draws a single geometry, so a tree whose trunk forks into
- * branches has to have those merged up front rather than parented together —
- * otherwise every extra piece costs another draw call multiplied by 460
- * instances. three.js ships `mergeGeometries` in its addons, which aren't
- * vendored here, and the indexed case is short enough to just do.
- */
 function mergeGeometries(geometries) {
   let vertexCount = 0;
   let indexCount = 0;
@@ -169,21 +143,22 @@ function mergeGeometries(geometries) {
   return merged;
 }
 
+/* ══════════════════════════════════════════════════════════════════════════
+   Trees & Roadside Flora
+   ══════════════════════════════════════════════════════════════════════════ */
+
 /** Realistic tapered trunk with root flare and organic branches. */
 function buildTrunkGeometry() {
   const parts = [];
 
-  // Root flare at ground
   const root = new CylinderGeometry(0.32, 0.54, 1.2, 10);
   root.translate(0, 0.6, 0);
   parts.push(root);
 
-  // Main trunk body
   const trunk = new CylinderGeometry(0.20, 0.34, 3.0, 10);
   trunk.translate(0, 2.4, 0);
   parts.push(trunk);
 
-  // Organic branches reaching into canopy clusters
   const branchDefs = [
     { radius: 0.14, len: 2.3, rotZ: 0.54, rotY: 0.4, pos: [0, 3.2, 0] },
     { radius: 0.14, len: 2.5, rotZ: 0.56, rotY: 2.3, pos: [0, 3.4, 0] },
@@ -203,13 +178,10 @@ function buildTrunkGeometry() {
   return mergeGeometries(parts);
 }
 
-/**
- * Realistic layered foliage canopy with volumetric leaf cards and spherical normal transfer.
- */
+/** Layered foliage canopy with spherical normal transfer. */
 function buildCanopyGeometry() {
   const parts = [];
 
-  // 7 cluster centers that shape an organic, majestic crown
   const clusters = [
     { pos: [0, 5.8, 0], radius: 2.6 },
     { pos: [-1.4, 4.9, -0.9], radius: 2.2 },
@@ -224,7 +196,6 @@ function buildCanopyGeometry() {
     const [cx, cy, cz] = cluster.pos;
     const r = cluster.radius;
 
-    // Cross-quad leaf cards rotated around Y
     for (let a = 0; a < 3; a++) {
       const plane = new PlaneGeometry(r * 1.9, r * 1.6);
       plane.rotateY((a / 3) * Math.PI + a * 0.15);
@@ -232,14 +203,12 @@ function buildCanopyGeometry() {
       parts.push(plane);
     }
 
-    // Horizontal tilted leaf card for top/bottom canopy depth
     const cap = new PlaneGeometry(r * 1.8, r * 1.8);
     cap.rotateX(Math.PI / 2);
     cap.rotateZ(0.6);
     cap.translate(cx, cy, cz);
     parts.push(cap);
 
-    // Inner foliage cloud for density
     const ico = new SphereGeometry(r * 0.78, 8, 6);
     ico.translate(cx, cy, cz);
     parts.push(ico);
@@ -247,8 +216,6 @@ function buildCanopyGeometry() {
 
   const merged = mergeGeometries(parts);
 
-  // Spherical normal transfer: normals radiate outward from tree crown center (0, 4.8, 0)
-  // This gives the tree canopy luscious, continuous, 3D volumetric shading like AAA games.
   const pos = merged.attributes.position;
   const norm = merged.attributes.normal;
   const crownCenter = new Vector3(0, 4.8, 0);
@@ -261,18 +228,90 @@ function buildCanopyGeometry() {
   return merged;
 }
 
+/** Low flowering bushes and roadside ground foliage. */
+function buildBushGeometry() {
+  const parts = [];
+  const angles = [0, Math.PI / 3, (2 * Math.PI) / 3];
+  for (const a of angles) {
+    const p = new PlaneGeometry(2.1, 1.45);
+    p.rotateY(a);
+    p.translate(0, 0.725, 0);
+    parts.push(p);
+  }
+  return mergeGeometries(parts);
+}
+
 /* ══════════════════════════════════════════════════════════════════════════
-   Roadside scenery
+   Spectator Grandstands
    ══════════════════════════════════════════════════════════════════════════ */
 
-/**
- * Trees and distance markers, placed by walking the track's sample table and
- * stepping sideways from the centreline.
- *
- * Trees sit beyond the barrier with randomised distance, height and lean.
- * Markers sit just outside the kerb at regular intervals, which is what
- * actually sells the sense of speed at 250 km/h.
- */
+function createGrandstand({ track, sampleIndex, side = 1 }) {
+  const safeIndex = Math.max(0, Math.min(track.samples.length - 1, sampleIndex));
+  const sample = track.samples[safeIndex];
+  const stand = new Group();
+  stand.name = 'grandstand';
+
+  const lateral = side * (track.wallLateral + 7.5);
+  const pos = new Vector3();
+  track.groundPoint(sample, lateral, pos);
+  stand.position.copy(pos);
+
+  // Orient grandstand facing directly toward the track
+  const forward = sample.tangent.clone().normalize();
+  const up = sample.up.clone().normalize();
+  const inward = sample.right.clone().multiplyScalar(-side).normalize();
+  const quat = new Quaternion().setFromRotationMatrix(new Matrix4().makeBasis(forward, up, inward));
+  stand.quaternion.copy(quat);
+
+  const crowdMat = new MeshStandardMaterial({
+    map: createGrandstandCrowdTexture(),
+    roughness: 0.6,
+    metalness: 0.1,
+  });
+  const steelMat = new MeshStandardMaterial({
+    color: 0x3a404a,
+    roughness: 0.4,
+    metalness: 0.8,
+  });
+  const roofMat = new MeshStandardMaterial({
+    color: 0x1c2027,
+    roughness: 0.35,
+    metalness: 0.6,
+  });
+
+  // 1. Bleachers body with cheering spectators
+  const bleachers = new Mesh(new BoxGeometry(22, 4.8, 8.0), crowdMat);
+  bleachers.position.set(0, 2.4, 0);
+  bleachers.castShadow = true;
+  bleachers.receiveShadow = true;
+
+  // 2. Modern cantilever stadium roof canopy
+  const roof = new Mesh(new BoxGeometry(24, 0.36, 9.5), roofMat);
+  roof.position.set(0, 6.2, 0.4);
+  roof.rotation.x = -0.10;
+  roof.castShadow = true;
+  roof.receiveShadow = true;
+
+  // 3. Steel support pillars
+  const pillarGeom = new CylinderGeometry(0.18, 0.22, 6.4, 8);
+  pillarGeom.translate(0, 3.2, 0);
+  for (const px of [-10, 10]) {
+    for (const pz of [-3.5, 3.5]) {
+      const pillar = new Mesh(pillarGeom, steelMat);
+      pillar.position.set(px, 0, pz);
+      pillar.castShadow = true;
+      stand.add(pillar);
+    }
+  }
+
+  stand.add(bleachers, roof);
+  return stand;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Full Roadside Scenery Assembly
+   ══════════════════════════════════════════════════════════════════════════ */
+
 export function createScenery(track) {
   const group = new Group();
   group.name = 'scenery';
@@ -330,13 +369,11 @@ export function createScenery(track) {
   for (let i = 0; i < WORLD.treeCount; i++) {
     const sample = samples[(random() * samples.length) | 0];
     const side = random() < 0.5 ? -1 : 1;
-    // Well clear of the barrier, scattered out into the verge.
     const lateral = side * (barrier + 6 + random() * (TRACK.vergeWidth - 12));
     const height = 0.85 + random() * 0.95;
 
     track.groundPoint(sample, lateral, position);
     scale.set(height * (0.9 + random() * 0.25), height, height * (0.9 + random() * 0.25));
-    // A few degrees of lean, so the rows don't look stamped.
     quaternion.setFromAxisAngle(
       new Vector3(random() - 0.5, 0, random() - 0.5).normalize(),
       (random() - 0.5) * 0.08,
@@ -354,7 +391,54 @@ export function createScenery(track) {
   if (foliage.instanceColor) foliage.instanceColor.needsUpdate = true;
   group.add(trunks, foliage);
 
-  /* ── Distance markers ───────────────────────────────────────────────── */
+  /* ── Lush Roadside Bushes & Ground Shrubs ────────────────────────────── */
+
+  const bushCount = WORLD.bushCount || 320;
+  const bushes = new InstancedMesh(
+    buildBushGeometry(),
+    new MeshStandardMaterial({
+      map: createBushTexture(),
+      alphaTest: 0.35,
+      roughness: 0.78,
+      metalness: 0.04,
+      side: DoubleSide,
+      shadowSide: DoubleSide,
+    }),
+    bushCount,
+  );
+  bushes.instanceColor = new InstancedBufferAttribute(new Float32Array(bushCount * 3), 3);
+  bushes.castShadow = true;
+  bushes.receiveShadow = true;
+  bushes.name = 'bushes';
+
+  const bushPalette = [
+    new Color(0x28591a),
+    new Color(0x3a7526),
+    new Color(0x4e9334),
+    new Color(0x336821),
+    new Color(0x5ba43d),
+  ];
+
+  for (let i = 0; i < bushCount; i++) {
+    const sample = samples[(random() * samples.length) | 0];
+    const side = random() < 0.5 ? -1 : 1;
+    // Scattered along grassy verge outside the barrier
+    const lateral = side * (barrier + 1.2 + random() * 16);
+    const bScale = 0.75 + random() * 0.85;
+
+    track.groundPoint(sample, lateral, position);
+    scale.set(bScale * (0.85 + random() * 0.3), bScale, bScale * (0.85 + random() * 0.3));
+    quaternion.setFromAxisAngle(new Vector3(0, 1, 0), random() * Math.PI * 2);
+
+    matrix.compose(position, quaternion, scale);
+    bushes.setMatrixAt(i, matrix);
+    bushes.setColorAt(i, bushPalette[(random() * bushPalette.length) | 0]);
+  }
+  bushes.instanceMatrix.needsUpdate = true;
+  if (bushes.instanceColor) bushes.instanceColor.needsUpdate = true;
+  group.add(bushes);
+
+  /* ── Distance Markers ───────────────────────────────────────────────── */
 
   const markerCount = Math.floor(track.length / WORLD.markerSpacing) * 2;
   const markerGeometry = new BoxGeometry(0.14, 1.05, 0.5);
@@ -373,14 +457,11 @@ export function createScenery(track) {
     const sample = samples[Math.min(samples.length - 1, Math.round(distance / track.spacing))];
     for (const side of [-1, 1]) {
       track.groundPoint(sample, side * markerLateral, position);
-      // Face along the track so the thin edge is what you see approaching.
       quaternion.setFromUnitVectors(FORWARD_Z, sample.tangent);
       matrix.compose(position, quaternion, ONE);
       markers.setMatrixAt(written++, matrix);
     }
   }
-  // Any unwritten instances default to an identity matrix at the origin, which
-  // would stack a pile of markers on the start line. Hide the remainder.
   for (let i = written; i < markerCount; i++) {
     matrix.compose(HIDDEN, noRotation, ONE);
     markers.setMatrixAt(i, matrix);
@@ -388,7 +469,125 @@ export function createScenery(track) {
   markers.instanceMatrix.needsUpdate = true;
   group.add(markers);
 
-  /* ── Start/finish gantry ────────────────────────────────────────────── */
+  /* ── Corner Tire Safety Walls ───────────────────────────────────────── */
+
+  const tireWallCount = WORLD.tireWallCount || 56;
+  const tireGeom = new BoxGeometry(5.4, 1.05, 1.35);
+  tireGeom.translate(0, 0.525, 0);
+  const tireWalls = new InstancedMesh(
+    tireGeom,
+    new MeshStandardMaterial({
+      map: createTireWallTexture(),
+      roughness: 0.8,
+      metalness: 0.08,
+    }),
+    tireWallCount,
+  );
+  tireWalls.castShadow = true;
+  tireWalls.receiveShadow = true;
+  tireWalls.name = 'tire-walls';
+
+  let tireWritten = 0;
+  const step = Math.max(1, Math.floor(samples.length / tireWallCount));
+  for (let i = 0; i < samples.length && tireWritten < tireWallCount; i += step) {
+    const sample = samples[i];
+    // Place tire wall on outside of curves or every few intervals
+    const isCurved = Math.abs(sample.curvature) > 0.006;
+    const side = sample.curvature >= 0 ? 1 : -1;
+    const lateral = side * (barrier + 1.1);
+
+    track.groundPoint(sample, lateral, position);
+    quaternion.setFromUnitVectors(FORWARD_Z, sample.tangent);
+    scale.set(1, 1, 1);
+
+    if (isCurved || i % (step * 2) === 0) {
+      matrix.compose(position, quaternion, scale);
+      tireWalls.setMatrixAt(tireWritten++, matrix);
+    }
+  }
+  for (let i = tireWritten; i < tireWallCount; i++) {
+    matrix.compose(HIDDEN, noRotation, ONE);
+    tireWalls.setMatrixAt(i, matrix);
+  }
+  tireWalls.instanceMatrix.needsUpdate = true;
+  group.add(tireWalls);
+
+  /* ── Trackside Sponsor Billboards ───────────────────────────────────── */
+
+  const sponsorCount = WORLD.sponsorBannerCount || 34;
+  const bannerGeom = new BoxGeometry(4.8, 1.22, 0.16);
+  bannerGeom.translate(0, 0.61, 0);
+
+  // 4 sponsor variations distributed along track
+  for (let v = 0; v < 4; v++) {
+    const perVariant = Math.ceil(sponsorCount / 4);
+    const boards = new InstancedMesh(
+      bannerGeom,
+      new MeshStandardMaterial({
+        map: createSponsorBannerTexture(v),
+        roughness: 0.45,
+        metalness: 0.25,
+      }),
+      perVariant,
+    );
+    boards.castShadow = true;
+    boards.receiveShadow = true;
+    boards.name = `sponsor-boards-${v}`;
+
+    let bWritten = 0;
+    const bSpacing = Math.floor(samples.length / sponsorCount);
+    for (let s = v; s < sponsorCount && bWritten < perVariant; s += 4) {
+      const sIdx = (s * bSpacing + 12) % samples.length;
+      const sample = samples[sIdx];
+      const side = s % 2 === 0 ? 1 : -1;
+      const lateral = side * (barrier + 1.25);
+
+      track.groundPoint(sample, lateral, position);
+      quaternion.setFromUnitVectors(FORWARD_Z, sample.tangent);
+
+      matrix.compose(position, quaternion, ONE);
+      boards.setMatrixAt(bWritten++, matrix);
+    }
+    for (let i = bWritten; i < perVariant; i++) {
+      matrix.compose(HIDDEN, noRotation, ONE);
+      boards.setMatrixAt(i, matrix);
+    }
+    boards.instanceMatrix.needsUpdate = true;
+    group.add(boards);
+  }
+
+  /* ── Spectator Grandstands ──────────────────────────────────────────── */
+
+  if (track.closed) {
+    // Grand Prix Circuit spectator locations
+    const standIndices = [
+      { idx: 10, side: 1 },
+      { idx: 36, side: 1 },
+      { idx: 75, side: -1 },
+      { idx: 150, side: 1 },
+      { idx: 240, side: -1 },
+      { idx: Math.max(0, samples.length - 40), side: 1 },
+    ];
+    for (const s of standIndices) {
+      group.add(createGrandstand({ track, sampleIndex: s.idx, side: s.side }));
+    }
+  } else {
+    // Sprint / Time Lap spectator locations along the run
+    const startIdx = track.timingStartIndex;
+    const finishIdx = track.timingFinishIndex;
+    const standIndices = [
+      { idx: startIdx + 8, side: 1 },
+      { idx: startIdx + 45, side: -1 },
+      { idx: Math.floor((startIdx + finishIdx) / 2), side: 1 },
+      { idx: finishIdx - 50, side: -1 },
+      { idx: finishIdx - 14, side: 1 },
+    ];
+    for (const s of standIndices) {
+      group.add(createGrandstand({ track, sampleIndex: s.idx, side: s.side }));
+    }
+  }
+
+  /* ── Start/Finish Motorsport Gantries ────────────────────────────────── */
 
   if (track.closed) {
     group.add(createMotorsportGantry({
@@ -451,10 +650,8 @@ function createMotorsportGantry({ track, sampleIndex, title, subtitle, isFinish 
     roughness: 0.2,
   });
 
-  // Calculate rotation across track:
   const acrossAngle = Math.atan2(sample.right.x, sample.right.z) - Math.PI / 2;
 
-  // Dual lattice columns on each side of the track
   const postGeom = new CylinderGeometry(0.24, 0.32, postHeight, 10);
   postGeom.translate(0, postHeight / 2, 0);
 
@@ -477,7 +674,6 @@ function createMotorsportGantry({ track, sampleIndex, title, subtitle, isFinish 
     gantry.add(colA, colB);
   }
 
-  // Cross beam truss: upper and lower rails
   const span = halfWidth * 2;
   const topRail = new Mesh(new BoxGeometry(span, 0.34, 0.42), steel);
   topRail.position.copy(sample.position);
@@ -491,7 +687,6 @@ function createMotorsportGantry({ track, sampleIndex, title, subtitle, isFinish 
   bottomRail.rotation.y = acrossAngle;
   bottomRail.castShadow = true;
 
-  // High-res double-sided banner board
   const signWidth = span * 0.72;
   const signHeight = 1.45;
   const sign = new Mesh(new BoxGeometry(signWidth, signHeight, 0.14), bannerMat);
@@ -500,7 +695,6 @@ function createMotorsportGantry({ track, sampleIndex, title, subtitle, isFinish 
   sign.rotation.y = acrossAngle;
   sign.castShadow = true;
 
-  // 5 Start / Finish lights mounted below the banner
   const lightBar = new Group();
   lightBar.position.copy(sample.position);
   lightBar.position.y += postHeight - 2.15;

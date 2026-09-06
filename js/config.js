@@ -196,39 +196,40 @@ export const CAMERA = {
   far: 1400,
 
   /**
-   * `offset` is [sideways, up, forward] in the car's frame, so a negative third
-   * component trails the car. `pullback` is how much further back the camera
-   * drifts at top speed, which widens the view of what's coming.
-   *
-   * Hood gets no pullback on purpose: it sits 1.5m ahead of the car's origin,
-   * just clear of the windscreen, and any pullback at all would drag it back
-   * inside the bodywork at speed.
+   * `offset` is [sideways, up, forward] in the car's frame.
+   * Cockpit and Hood modes have `isFPP: true` and are rigidly locked to the car body
+   * to eliminate forward/backward camera shaking.
    */
   modes: [
-    { name: 'Chase', offset: [0, 3.05, -8.4], pullback: 2.4, lookAhead: 11, lookHeight: 1.5, stiffness: 5.0, fovScale: 1 },
-    { name: 'Hood', offset: [0, 1.22, 1.5], pullback: 0, lookAhead: 16, lookHeight: 1.15, stiffness: 22, fovScale: 1.04 },
-    { name: 'Wide', offset: [0, 5.6, -14.5], pullback: 3.2, lookAhead: 9, lookHeight: 2.2, stiffness: 3.4, fovScale: 0.94 },
+    { name: 'Chase', offset: [0, 3.05, -8.4], pullback: 2.4, lookAhead: 11, lookHeight: 1.5, stiffness: 5.0, fovScale: 1, isFPP: false },
+    { name: 'Cockpit (FPP)', offset: [0, 0.96, -0.45], pullback: 0, lookAhead: 30, lookHeight: 0.90, stiffness: Infinity, fovScale: 1.0, isFPP: true },
+    { name: 'Hood (FPP)', offset: [0, 0.88, -1.25], pullback: 0, lookAhead: 30, lookHeight: 0.82, stiffness: Infinity, fovScale: 1.0, isFPP: true },
+    { name: 'Wide', offset: [0, 5.6, -14.5], pullback: 3.2, lookAhead: 9, lookHeight: 2.2, stiffness: 3.4, fovScale: 0.94, isFPP: false },
   ],
 };
 
 export const WORLD = {
   /** Fog and the sky's horizon band share this colour so the ribbon edge vanishes. */
-  horizonColor: 0xbdd7ea,
-  zenithColor: 0x2f6ea8,
-  fogDensity: 0.0022,
+  horizonColor: 0xbed6ea,
+  zenithColor: 0x27649f,
+  fogDensity: 0.0020,
 
-  sunPosition: [180, 220, 120],
-  sunIntensity: 2.5,
-  hemiIntensity: 1.15,
-  groundColor: 0x6a7b52,
+  sunPosition: [190, 240, 130],
+  sunIntensity: 2.7,
+  hemiIntensity: 1.25,
+  groundColor: 0x5a6d46,
 
   /** Ortho half-size of the shadow frustum that follows the car. */
-  shadowRadius: 46,
+  shadowRadius: 48,
   shadowMapSize: 2048,
 
-  /** Roadside scenery counts. Both are single InstancedMesh draw calls. */
+  /** Roadside scenery counts. */
   treeCount: 460,
+  bushCount: 320,
   markerSpacing: 42, // metres between distance markers, each side
+  grandstandCount: 6,
+  tireWallCount: 56,
+  sponsorBannerCount: 34,
 };
 
 export const RENDER = {

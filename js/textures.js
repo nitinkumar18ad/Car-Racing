@@ -531,48 +531,306 @@ export function createSkyTexture() {
   const zenith = '#' + WORLD.zenithColor.toString(16).padStart(6, '0');
   const horizon = '#' + WORLD.horizonColor.toString(16).padStart(6, '0');
 
-  // Sphere UVs put v=0 at the bottom, so paint top-down: zenith to horizon and
-  // on into a slightly darker ground haze below the skyline.
+  // Deep atmosphere gradient
   const gradient = ctx.createLinearGradient(0, 0, 0, H);
   gradient.addColorStop(0.00, zenith);
-  gradient.addColorStop(0.32, '#5f9bcb');
-  gradient.addColorStop(0.50, horizon);
+  gradient.addColorStop(0.28, '#4484be');
+  gradient.addColorStop(0.48, horizon);
   gradient.addColorStop(0.56, horizon);
-  gradient.addColorStop(1.00, '#96a98c');
+  gradient.addColorStop(1.00, '#8aa27e');
   ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, W, H);
 
-  // Soft cumulus: overlapping translucent ellipses, brighter on top.
-  for (let i = 0; i < 26; i++) {
+  // Wispy high-altitude cirrus streaks across the upper hemisphere
+  for (let i = 0; i < 18; i++) {
+    const y = H * (0.04 + random() * 0.22);
+    const x = random() * W;
+    const len = 120 + random() * 320;
+    const h = 4 + random() * 10;
+    const cirrusGrad = ctx.createLinearGradient(x, y, x + len, y + h);
+    cirrusGrad.addColorStop(0, 'rgba(255,255,255,0)');
+    cirrusGrad.addColorStop(0.5, `rgba(255,255,255,${0.08 + random() * 0.14})`);
+    cirrusGrad.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = cirrusGrad;
+    ctx.beginPath();
+    ctx.ellipse(x + len / 2, y, len / 2, h, 0.05 * (random() - 0.5), 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Soft cumulus clouds near horizon
+  for (let i = 0; i < 30; i++) {
     const cx = random() * W;
-    const cy = H * (0.10 + random() * 0.28);
-    const scale = 0.5 + random() * 1.5;
-    const puffs = 5 + ((random() * 7) | 0);
+    const cy = H * (0.16 + random() * 0.26);
+    const scale = 0.6 + random() * 1.6;
+    const puffs = 6 + ((random() * 8) | 0);
     for (let p = 0; p < puffs; p++) {
-      const px = cx + (random() - 0.5) * 150 * scale;
-      const py = cy + (random() - 0.5) * 26 * scale;
-      const rx = (24 + random() * 52) * scale;
-      const ry = rx * (0.32 + random() * 0.3);
-      ctx.fillStyle = `rgba(255,255,255,${0.10 + random() * 0.20})`;
+      const px = cx + (random() - 0.5) * 160 * scale;
+      const py = cy + (random() - 0.5) * 28 * scale;
+      const rx = (24 + random() * 55) * scale;
+      const ry = rx * (0.32 + random() * 0.32);
+      ctx.fillStyle = `rgba(255,255,255,${0.12 + random() * 0.22})`;
       ctx.beginPath();
       ctx.ellipse(px, py, rx, ry, 0, 0, Math.PI * 2);
       ctx.fill();
     }
   }
 
-  // Warm glow near the sun's azimuth so the lighting direction reads visually.
-  const glow = ctx.createRadialGradient(W * 0.68, H * 0.22, 0, W * 0.68, H * 0.22, W * 0.30);
-  glow.addColorStop(0, 'rgba(255,246,214,0.55)');
-  glow.addColorStop(1, 'rgba(255,246,214,0)');
+  // Warm atmospheric sun bloom near the sun azimuth
+  const glow = ctx.createRadialGradient(W * 0.70, H * 0.20, 0, W * 0.70, H * 0.20, W * 0.34);
+  glow.addColorStop(0, 'rgba(255,248,220,0.65)');
+  glow.addColorStop(0.3, 'rgba(255,240,195,0.28)');
+  glow.addColorStop(1, 'rgba(255,240,195,0)');
   ctx.fillStyle = glow;
   ctx.fillRect(0, 0, W, H);
 
   const texture = new CanvasTexture(ctx.canvas);
   texture.colorSpace = SRGBColorSpace;
-  // Clamp vertically: repeating would mirror the horizon back into the sky.
   texture.wrapS = RepeatWrapping;
   texture.wrapT = ClampToEdgeWrapping;
   texture.minFilter = LinearFilter;
   texture.magFilter = LinearFilter;
+  return texture;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Roadside Bush & Shrub Foliage Texture
+   ══════════════════════════════════════════════════════════════════════════ */
+
+export function createBushTexture() {
+  const W = 256;
+  const H = 256;
+  const ctx = surface(W, H);
+  const random = makeRandom(0x3841a);
+
+  ctx.clearRect(0, 0, W, H);
+
+  const clumps = [
+    { x: 128, y: 160, r: 66, c: '#234a17' },
+    { x: 78,  y: 172, r: 54, c: '#1e4014' },
+    { x: 178, y: 172, r: 54, c: '#1e4014' },
+    { x: 96,  y: 124, r: 56, c: '#2c591c' },
+    { x: 160, y: 124, r: 56, c: '#2c591c' },
+    { x: 128, y: 96,  r: 58, c: '#387024' },
+    { x: 86,  y: 82,  r: 46, c: '#44852e' },
+    { x: 170, y: 82,  r: 46, c: '#44852e' },
+    { x: 128, y: 62,  r: 44, c: '#56a23a' },
+  ];
+
+  for (const clump of clumps) {
+    ctx.fillStyle = clump.c;
+    ctx.beginPath();
+    ctx.arc(clump.x, clump.y, clump.r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Leaf spatter around edges
+  for (let i = 0; i < 350; i++) {
+    const angle = random() * Math.PI * 2;
+    const dist = 30 + Math.pow(random(), 0.6) * 88;
+    const px = 128 + Math.cos(angle) * dist * 0.95;
+    const py = 126 + Math.sin(angle) * dist * 0.85;
+    if (py > 238 || px < 18 || px > 238) continue;
+
+    const lr = 4 + random() * 9;
+    const shade = random() < 0.4 ? '#4a9332' : (random() < 0.7 ? '#366f24' : '#64b63f');
+    ctx.fillStyle = shade;
+    ctx.beginPath();
+    ctx.arc(px, py, lr, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Blossom specks
+  for (let i = 0; i < 32; i++) {
+    const angle = random() * Math.PI * 2;
+    const dist = 24 + random() * 72;
+    const fx = 128 + Math.cos(angle) * dist * 0.85;
+    const fy = 125 + Math.sin(angle) * dist * 0.75;
+    if (fy > 225) continue;
+
+    ctx.fillStyle = random() < 0.65 ? '#f6d848' : '#ffffff';
+    ctx.beginPath();
+    ctx.arc(fx, fy, 2.5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  const texture = new CanvasTexture(ctx.canvas);
+  texture.colorSpace = SRGBColorSpace;
+  texture.anisotropy = 8;
+  return texture;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Grandstand Spectator Crowd Texture
+   ══════════════════════════════════════════════════════════════════════════ */
+
+export function createGrandstandCrowdTexture() {
+  const W = 512;
+  const H = 256;
+  const ctx = surface(W, H);
+  const random = makeRandom(0x9182a);
+
+  // Background concrete tiers
+  const gradient = ctx.createLinearGradient(0, 0, 0, H);
+  gradient.addColorStop(0, '#1a1d22');
+  gradient.addColorStop(0.20, '#2b3038');
+  gradient.addColorStop(0.80, '#3e4550');
+  gradient.addColorStop(0.84, '#1b1d22');
+  gradient.addColorStop(1.0, '#101216');
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, W, H);
+
+  // Roof shade
+  ctx.fillStyle = 'rgba(8, 10, 14, 0.7)';
+  ctx.fillRect(0, 0, W, 40);
+
+  // Stepped stadium rows
+  const tierCount = 11;
+  const tierHeight = (H * 0.74) / tierCount;
+  for (let t = 0; t < tierCount; t++) {
+    const y = 32 + t * tierHeight;
+    ctx.fillStyle = t % 2 === 0 ? '#464e5b' : '#373e49';
+    ctx.fillRect(0, y, W, tierHeight);
+
+    ctx.fillStyle = '#606a7a';
+    ctx.fillRect(0, y, W, 2);
+
+    const fanCount = 76;
+    const colors = [
+      '#e63946', '#f4a261', '#2a9d8f', '#e76f51', '#457b9d',
+      '#f1faee', '#e9c46a', '#ffffff', '#222222', '#ff0033',
+    ];
+
+    for (let f = 0; f < fanCount; f++) {
+      const fx = (f / fanCount) * W + (random() - 0.5) * 6;
+      const fy = y + tierHeight * 0.48 + (random() - 0.5) * 3;
+
+      ctx.fillStyle = colors[(random() * colors.length) | 0];
+      ctx.beginPath();
+      ctx.ellipse(fx, fy, 2.5, 3.6, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = random() < 0.4 ? '#ffcc99' : colors[(random() * colors.length) | 0];
+      ctx.beginPath();
+      ctx.arc(fx, fy - 3.8, 1.8, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  // Sponsor barrier on front wall
+  const wallY = H * 0.81;
+  const wallH = H - wallY;
+  ctx.fillStyle = '#d92534';
+  ctx.fillRect(0, wallY, W, wallH);
+
+  ctx.fillStyle = '#ffffff';
+  ctx.font = '900 24px "Segoe UI", Arial, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('APEX GRAND PRIX  •  OFFICIAL CIRCUIT', W / 2, wallY + wallH / 2);
+
+  const texture = new CanvasTexture(ctx.canvas);
+  texture.colorSpace = SRGBColorSpace;
+  texture.anisotropy = 8;
+  return texture;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Corner Tire Wall Safety Barrier Texture
+   ══════════════════════════════════════════════════════════════════════════ */
+
+export function createTireWallTexture() {
+  const W = 256;
+  const H = 256;
+  const ctx = surface(W, H);
+
+  const rowHeight = H / 3;
+  const colWidth = W / 8;
+
+  for (let r = 0; r < 3; r++) {
+    const y = r * rowHeight;
+    for (let c = 0; c < 8; c++) {
+      const x = c * colWidth;
+      const isRed = (r + c) % 2 === 0;
+
+      ctx.fillStyle = isRed ? '#cc1824' : '#f0f3f6';
+      ctx.fillRect(x + 1, y + 1, colWidth - 2, rowHeight - 2);
+
+      const grad = ctx.createLinearGradient(x, 0, x + colWidth, 0);
+      grad.addColorStop(0, 'rgba(0,0,0,0.55)');
+      grad.addColorStop(0.2, 'rgba(0,0,0,0.1)');
+      grad.addColorStop(0.5, 'rgba(255,255,255,0.28)');
+      grad.addColorStop(0.8, 'rgba(0,0,0,0.1)');
+      grad.addColorStop(1, 'rgba(0,0,0,0.6)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(x + 1, y + 1, colWidth - 2, rowHeight - 2);
+
+      ctx.fillStyle = '#111317';
+      ctx.beginPath();
+      ctx.ellipse(x + colWidth / 2, y + rowHeight / 2, colWidth * 0.28, rowHeight * 0.26, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.strokeStyle = 'rgba(0,0,0,0.4)';
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(x + 1, y + 1, colWidth - 2, rowHeight - 2);
+    }
+  }
+
+  const texture = new CanvasTexture(ctx.canvas);
+  texture.colorSpace = SRGBColorSpace;
+  texture.wrapS = RepeatWrapping;
+  texture.wrapT = ClampToEdgeWrapping;
+  texture.anisotropy = 8;
+  return texture;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Trackside Sponsor Billboard Texture
+   ══════════════════════════════════════════════════════════════════════════ */
+
+export function createSponsorBannerTexture(variant = 0) {
+  const W = 512;
+  const H = 128;
+  const ctx = surface(W, H);
+
+  const sponsors = [
+    { title: 'PIRELLI', sub: 'P ZERO  •  COMPETITION', bg: '#d41c1c', fg: '#ffe600', subColor: '#ffffff' },
+    { title: 'BREMBO', sub: 'RACING BRAKE SYSTEMS', bg: '#1c1f24', fg: '#ffffff', subColor: '#e62e2e' },
+    { title: 'CASTROL', sub: 'EDGE  •  TITANIUM FST', bg: '#006633', fg: '#ffffff', subColor: '#ffcc00' },
+    { title: 'APEX GP', sub: 'CHAMPIONSHIP SERIES', bg: '#0f141c', fg: '#00f0ff', subColor: '#ffffff' },
+  ];
+
+  const s = sponsors[variant % sponsors.length];
+
+  ctx.fillStyle = s.bg;
+  ctx.fillRect(0, 0, W, H);
+
+  // Carbon / racing diagonal lines
+  ctx.fillStyle = 'rgba(255,255,255,0.06)';
+  for (let x = -H; x < W + H; x += 16) {
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x + 20, 0);
+    ctx.lineTo(x - 20 + H, H);
+    ctx.lineTo(x - 40 + H, H);
+    ctx.fill();
+  }
+
+  ctx.strokeStyle = s.subColor;
+  ctx.lineWidth = 4;
+  ctx.strokeRect(2, 2, W - 4, H - 4);
+
+  ctx.fillStyle = s.fg;
+  ctx.font = '900 50px "Segoe UI", Arial, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(s.title, W / 2, H * 0.40);
+
+  ctx.fillStyle = s.subColor;
+  ctx.font = '700 16px "Segoe UI", Arial, sans-serif';
+  ctx.fillText(s.sub, W / 2, H * 0.78);
+
+  const texture = new CanvasTexture(ctx.canvas);
+  texture.colorSpace = SRGBColorSpace;
+  texture.anisotropy = 8;
   return texture;
 }

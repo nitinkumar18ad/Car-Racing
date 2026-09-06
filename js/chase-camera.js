@@ -1,17 +1,15 @@
 /**
- * Chase camera.
+ * Camera controller for Chase and First-Person (FPP) modes.
  *
- * Follows the car with exponential damping rather than a fixed lerp factor:
+ * - Chase & Wide modes follow the car with frame-rate independent exponential damping:
+ *       alpha = 1 - exp(-stiffness * dt)
+ *   trailing the car's heading to deliver a smooth cinematic slide.
  *
- *     alpha = 1 - exp(-stiffness * dt)
- *
- * A plain `lerp(a, b, 0.1)` per frame converges at a rate that depends on
- * frame rate, so the camera would feel tighter on a 144Hz monitor than a 60Hz
- * one. The exponential form is frame-rate independent — the same stiffness
- * produces the same motion at any refresh rate.
- *
- * The camera also deliberately trails the car's *heading*, not its velocity, so
- * a drift is seen side-on instead of the camera swinging behind the slide.
+ * - FPP (Cockpit and Hood) modes are rigidly locked to the car chassis' visual transform
+ *   (car.mesh.quaternion and car.mesh.position). Because there is zero forward/backward spring
+ *   lag and orientation moves in lockstep with the car's pitch and roll, the car body and hood
+ *   remain completely rock-solid in the frame without any forward/backward shaking, vibrating,
+ *   or clipping under acceleration and braking.
  */
 
 import { Vector3 } from 'three';
@@ -31,9 +29,14 @@ export class ChaseCamera {
     this.#desiredLook = new Vector3();
     this.#forward = new Vector3();
     this.#initialised = false;
+
+    this.#tmpLocalPos = new Vector3();
+    this.#tmpLocalLook = new Vector3();
+    this.#camUp = new Vector3();
   }
 
   #desired; #desiredLook; #forward; #initialised;
+  #tmpLocalPos; #tmpLocalLook; #camUp;
 
   get mode() {
     return CAMERA.modes[this.modeIndex];
@@ -41,8 +44,7 @@ export class ChaseCamera {
 
   cycleMode() {
     this.modeIndex = (this.modeIndex + 1) % CAMERA.modes.length;
-    // Don't smooth across a mode change — snap, or the camera sails through the
-    // scenery on its way to the new offset.
+    // Don't smooth across a mode change — snap immediately
     this.#initialised = false;
     return this.mode.name;
   }
@@ -55,6 +57,35 @@ export class ChaseCamera {
 
   update(car, dt) {
     const mode = this.mode;
+
+    // ── First-Person Perspective (FPP / Cockpit / Hood) ───────────────────
+    if (mode.isFPP) {
+      // Direct chassis binding:
+      // Computes world position and look target directly from car.mesh.
+      // This completely eliminates forward/backward shaking, bouncing, and clipping.
+      this.#tmpLocalPos.set(mode.offset[0], mode.offset[1], mode.offset[2]);
+      this.#tmpLocalLook.set(0, mode.lookHeight, -mode.lookAhead);
+
+      this.#tmpLocalPos.applyQuaternion(car.mesh.quaternion).add(car.mesh.position);
+      this.#tmpLocalLook.applyQuaternion(car.mesh.quaternion).add(car.mesh.position);
+
+      this.position.copy(this.#tmpLocalPos);
+      this.lookTarget.copy(this.#tmpLocalLook);
+      this.#initialised = true;
+
+      this.camera.position.copy(this.position);
+      this.#camUp.set(0, 1, 0).applyQuaternion(car.mesh.quaternion);
+      this.camera.up.copy(this.#camUp);
+      this.camera.lookAt(this.lookTarget);
+
+      // Keep FOV steady in FPP to prevent perspective breathing distortion
+      const targetFov = CAMERA.fov * mode.fovScale;
+      this.camera.fov = targetFov;
+      this.camera.updateProjectionMatrix();
+      return;
+    }
+
+    // ── 3rd-Person Chase Modes ───────────────────────────────────────────
     const speedFraction = clamp(car.speed / CAR.topSpeed, 0, 1);
 
     // Car-local basis. Using yaw rather than the mesh quaternion keeps the
@@ -84,8 +115,6 @@ export class ChaseCamera {
       car.position.z + this.#forward.z * mode.lookAhead,
     );
 
-    // Capture this before the flag is cleared below — the FOV needs to know
-    // whether this frame is a snap, and by then `#initialised` is always true.
     const snap = !this.#initialised;
 
     if (snap) {
@@ -95,8 +124,6 @@ export class ChaseCamera {
     } else {
       const alpha = 1 - Math.exp(-mode.stiffness * dt);
       this.position.lerp(this.#desired, alpha);
-      // The aim point chases faster than the position, so the car stays framed
-      // even when the camera is lagging behind through a fast direction change.
       this.lookTarget.lerp(this.#desiredLook, Math.min(1, alpha * 1.9));
     }
 
@@ -104,8 +131,7 @@ export class ChaseCamera {
     this.camera.up.set(0, 1, 0);
     this.camera.lookAt(this.lookTarget);
 
-    // Widen the lens with speed. Cheap, and it does more for the sense of
-    // velocity than any amount of extra scenery.
+    // Widen the lens with speed in 3rd-person chase
     const targetFov =
       (CAMERA.fov + (CAMERA.fovAtTopSpeed - CAMERA.fov) * speedFraction) * mode.fovScale;
     const fovAlpha = snap ? 1 : 1 - Math.exp(-4 * dt);
