@@ -17,6 +17,7 @@
 import { RACE, RENDER } from './config.js';
 import { IDLE_INPUT } from './input.js';
 import { loadBestLap, saveBestLap } from './hud.js';
+import { AudioManager } from './audio.js';
 
 export const State = {
   COUNTDOWN: 'countdown',
@@ -26,16 +27,23 @@ export const State = {
 };
 
 export class Game {
-  constructor({ track, car, camera, hud, input, onModeChange }) {
+  constructor({ track, car, camera, hud, input, onModeChange, audio }) {
     this.track = track;
     this.car = car;
     this.camera = camera;
     this.hud = hud;
     this.input = input;
     this.onModeChange = onModeChange;
+    this.audio = audio || new AudioManager();
 
     this.bestLap = loadBestLap(this.track.mode.storageKey);
     this.accumulator = 0;
+
+    this.hud.updateAudioButton?.(this.audio.muted);
+    this.hud.elements.audioButton?.addEventListener('click', () => {
+      const isMuted = this.audio.toggleMute();
+      this.hud.updateAudioButton?.(isMuted);
+    });
 
     this.reset();
   }
@@ -65,6 +73,7 @@ export class Game {
     this.hud.hideResults();
     this.hud.setPaused(false);
     this.hud.showCountdown(RACE.countdownSeconds);
+    this.audio?.update(this.car, IDLE_INPUT, 0.016, false);
   }
 
   get lapElapsed() {
@@ -138,6 +147,7 @@ export class Game {
       this.camera.update(this.car, dt);
     }
 
+    this.audio.update(this.car, input, dt, this.state === State.PAUSED);
     this.hud.update(this.car, this.raceState);
     this.input.endFrame();
   }
@@ -214,6 +224,11 @@ export class Game {
     if (this.input.consume('KeyM') && this.onModeChange) {
       this.onModeChange();
       return;
+    }
+
+    if (this.input.consume('KeyU')) {
+      const isMuted = this.audio.toggleMute();
+      this.hud.updateAudioButton?.(isMuted);
     }
 
     if (this.input.consume('KeyP') || this.input.consume('Escape')) {

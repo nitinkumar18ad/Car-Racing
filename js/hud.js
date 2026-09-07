@@ -39,6 +39,7 @@ export class Hud {
       loading: document.getElementById('loading'),
       modeName: document.getElementById('mode-name'),
       modeButton: document.getElementById('mode-button'),
+      audioButton: document.getElementById('audio-button'),
       lapLabel: document.getElementById('lap-label'),
       lapCurrent: document.getElementById('lap-current'),
       lapTotal: document.getElementById('lap-total'),
@@ -47,6 +48,7 @@ export class Hud {
       timeBest: document.getElementById('time-best'),
       delta: document.getElementById('delta'),
       speedValue: document.getElementById('speed-value'),
+      speedBarFill: document.getElementById('speed-bar-fill'),
       gear: document.getElementById('gear'),
       offroad: document.getElementById('offroad'),
       countdown: document.getElementById('countdown'),
@@ -130,30 +132,32 @@ export class Hud {
     }
     if (this.track.closed) ctx.closePath();
 
-    // Wide dark casing under a lighter core reads as a road at 148px.
-    ctx.strokeStyle = 'rgba(0, 0, 0, 0.55)';
-    ctx.lineWidth = 7;
+    // Sleek minimalist track rendering: subtle guide track with crisp glowing core
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+    ctx.lineWidth = 6;
+    ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     ctx.stroke();
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.34)';
-    ctx.lineWidth = 3.5;
+
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.65)';
+    ctx.lineWidth = 2.2;
     ctx.stroke();
 
-    // Start line marker.
+    // Start line marker - sleek glowing amber notch
     const startSample = this.track.samples[this.track.timingStartIndex] || this.track.samples[0];
     const [sx, sy] = project(startSample.position.x, startSample.position.z);
-    ctx.fillStyle = '#ffc93c';
+    ctx.fillStyle = '#f59e0b';
     ctx.beginPath();
-    ctx.arc(sx, sy, 3.4, 0, Math.PI * 2);
+    ctx.arc(sx, sy, 3, 0, Math.PI * 2);
     ctx.fill();
 
     if (!this.track.closed) {
       const finishIndex = this.track.timingFinishIndex != null ? this.track.timingFinishIndex : this.track.samples.length - 1;
       const finishSample = this.track.samples[finishIndex];
       const [fx, fy] = project(finishSample.position.x, finishSample.position.z);
-      ctx.fillStyle = '#5ce08b';
+      ctx.fillStyle = '#34d399';
       ctx.beginPath();
-      ctx.arc(fx, fy, 3.4, 0, Math.PI * 2);
+      ctx.arc(fx, fy, 3, 0, Math.PI * 2);
       ctx.fill();
     }
   }
@@ -166,22 +170,20 @@ export class Hud {
 
     const [x, y] = this.minimapProject(car.position.x, car.position.z);
 
-    // Heading wedge, so the dot shows which way the car is pointing.
+    // Sleek aero chevron marker with telemetry glow
     ctx.save();
     ctx.translate(x, y);
-    // Screen +y maps to world +z, so the wedge angle comes from the car's
-    // forward vector directly rather than from yaw.
     ctx.rotate(Math.atan2(-Math.sin(car.yaw), -Math.cos(car.yaw)) + Math.PI / 2);
-    ctx.fillStyle = '#ff5a4d';
+    ctx.shadowColor = 'rgba(0, 240, 255, 0.7)';
+    ctx.shadowBlur = 8;
+    ctx.fillStyle = '#00f0ff';
     ctx.beginPath();
-    ctx.moveTo(6.5, 0);
-    ctx.lineTo(-4, 3.6);
-    ctx.lineTo(-4, -3.6);
+    ctx.moveTo(6, 0);
+    ctx.lineTo(-4, 3.8);
+    ctx.lineTo(-2, 0);
+    ctx.lineTo(-4, -3.8);
     ctx.closePath();
     ctx.fill();
-    ctx.strokeStyle = 'rgba(0,0,0,0.6)';
-    ctx.lineWidth = 1;
-    ctx.stroke();
     ctx.restore();
   }
 
@@ -198,6 +200,11 @@ export class Hud {
     }
     el.speedValue.classList.toggle('speed-warn', car.speed >= CAR.topSpeed * 0.6 && car.speed < CAR.topSpeed * 0.85);
     el.speedValue.classList.toggle('speed-danger', car.speed >= CAR.topSpeed * 0.85);
+
+    if (el.speedBarFill) {
+      const pct = Math.min(100, Math.max(0, (car.speed / CAR.topSpeed) * 100));
+      el.speedBarFill.style.width = `${pct.toFixed(1)}%`;
+    }
 
     const gear = car.getGear();
     if (gear !== shown.gear) {
@@ -274,6 +281,17 @@ export class Hud {
     if (el.lapLabel) el.lapLabel.textContent = mode.label;
     el.lapTotal.textContent = String(mode.totalLaps);
     if (el.resultsTitle) el.resultsTitle.textContent = mode.resultsTitle;
+  }
+
+  updateAudioButton(isMuted) {
+    const btn = this.elements.audioButton;
+    if (!btn) return;
+    btn.classList.toggle('muted', isMuted);
+    btn.innerHTML = isMuted
+      ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H2v6h4l5 4V5z"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>'
+      : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path><path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path></svg>';
+    btn.setAttribute('aria-label', isMuted ? 'Unmute sound (U)' : 'Mute sound (U)');
+    btn.setAttribute('title', isMuted ? 'Unmute sound (U)' : 'Mute sound (U)');
   }
 
   /** `value` is 3, 2, 1 or the string 'GO', or null to hide. */

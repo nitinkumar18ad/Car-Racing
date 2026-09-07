@@ -1,18 +1,24 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Apex Circuit — 3D Racing</title>
-<link rel="stylesheet" href="css/style.css">
 
-<!--
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Apex Circuit — 3D Motorsport Racing Game</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Outfit:wght@400;500;600;700;800;900&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+
+  <!--
   three.js is vendored into vendor/three/ so the game works offline.
   three.module.js imports './three.core.js' relatively, so both files must stay
   side by side. To use the CDN instead, swap the mapping below for:
     "three": "https://cdn.jsdelivr.net/npm/three@0.185.1/build/three.module.js"
 -->
-<script type="importmap">
+  <script type="importmap">
 {
   "imports": {
     "three": "./vendor/three/three.module.js",
@@ -22,100 +28,126 @@
 }
 </script>
 </head>
+
 <body>
 
-<canvas id="scene"></canvas>
+  <canvas id="scene"></canvas>
 
-<!-- ── Loading ───────────────────────────────────────────────────────────── -->
-<div id="loading" class="overlay">
-  <div class="loading-inner">
-    <div class="loading-title">LOADING..</div>
-    <div class="loading-bar"><span></span></div>
-    <div class="loading-note">building track…</div>
-  </div>
-</div>
-
-<!-- ── HUD ───────────────────────────────────────────────────────────────── -->
-<div id="hud" class="hidden">
-
-  <!-- Lap / timing, top left -->
-  <div class="panel panel-timing">
-    <div class="mode-row">
-      <span class="label">MODE</span>
-      <button id="mode-button" class="mode-button" type="button">Circuit</button>
+  <!-- ── Loading ───────────────────────────────────────────────────────────── -->
+  <div id="loading" class="overlay">
+    <div class="loading-inner">
+      <div class="loading-title">LOADING..</div>
+      <div class="loading-bar"><span></span></div>
+      <div class="loading-note">building track…</div>
     </div>
-    <div class="lap-row">
-      <span class="label" id="lap-label">LAP</span>
-      <span class="lap-count"><b id="lap-current">1</b><i>/</i><span id="lap-total">3</span></span>
+  </div>
+
+  <!-- ── HUD ───────────────────────────────────────────────────────────────── -->
+  <div id="hud" class="hidden">
+
+    <!-- Lap / timing, top left -->
+    <div class="panel panel-timing">
+      <div class="mode-row">
+        <span class="label">MODE</span>
+        <div class="mode-actions">
+          <button id="mode-button" class="mode-button" type="button">Time Lap</button>
+          <button id="audio-button" class="audio-button" type="button" aria-label="Toggle sound (U)" title="Toggle sound (U)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path><path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path></svg>
+          </button>
+        </div>
+      </div>
+      <div class="lap-row">
+        <span class="label" id="lap-label">RUN</span>
+        <span class="lap-count"><b id="lap-current">1</b><i>/</i><span id="lap-total">1</span></span>
+      </div>
+      <div class="time-big" id="time-current">0:00.000</div>
+      <div class="time-row">
+        <span class="label">LAST</span><span id="time-last">—</span>
+      </div>
+      <div class="time-row">
+        <span class="label">BEST</span><span id="time-best">—</span>
+      </div>
+      <div class="delta" id="delta"></div>
     </div>
-    <div class="time-big" id="time-current">0:00.000</div>
-    <div class="time-row">
-      <span class="label">LAST</span><span id="time-last">—</span>
+
+    <!-- Minimap, top right -->
+    <div class="panel panel-map">
+      <canvas id="minimap" width="200" height="200"></canvas>
     </div>
-    <div class="time-row">
-      <span class="label">BEST</span><span id="time-best">—</span>
+
+    <!-- Speedometer, bottom right -->
+    <div class="panel panel-speed">
+      <div class="speed-main">
+        <div class="gear" id="gear">N</div>
+        <div class="speed-readout">
+          <span id="speed-value">0</span>
+          <small>KM/H</small>
+        </div>
+      </div>
+      <div class="speed-bar">
+        <div id="speed-bar-fill" class="speed-bar-fill"></div>
+      </div>
     </div>
-    <div class="delta" id="delta"></div>
-  </div>
 
-  <!-- Minimap, top right -->
-  <div class="panel panel-map">
-    <canvas id="minimap" width="200" height="200"></canvas>
-  </div>
+    <!-- Surface warning -->
+    <div class="offroad" id="offroad">OFF TRACK</div>
 
-  <!-- Speedometer, bottom right -->
-  <div class="panel panel-speed">
-    <div class="speed-readout">
-      <span id="speed-value">0</span>
-      <small>KM/H</small>
+    <!-- Controls reminder, bottom left -->
+    <div class="panel panel-keys">
+      <div class="keys-row">
+        <span class="keys-group"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd><span
+            class="key-label">Drive</span></span>
+        <span class="keys-dot">•</span>
+        <span class="keys-group"><kbd>Space</kbd><span class="key-label">Drift</span></span>
+      </div>
+      <div class="keys-row">
+        <span class="keys-group"><kbd>C</kbd><span class="key-label">Cam</span></span>
+        <span class="keys-dot">•</span>
+        <span class="keys-group"><kbd>M</kbd><span class="key-label">Mode</span></span>
+        <span class="keys-dot">•</span>
+        <span class="keys-group"><kbd>U</kbd><span class="key-label">Sound</span></span>
+        <span class="keys-dot">•</span>
+        <span class="keys-group"><kbd>R</kbd><span class="key-label">Reset</span></span>
+      </div>
     </div>
-    <div class="gear" id="gear">N</div>
+
   </div>
 
-  <!-- Surface warning -->
-  <div class="offroad" id="offroad">OFF TRACK</div>
+  <!-- ── Countdown ─────────────────────────────────────────────────────────── -->
+  <div id="countdown" class="hidden"><span id="countdown-text">3</span></div>
 
-  <!-- Controls reminder, bottom left -->
-  <div class="panel panel-keys">
-    <div><kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd> <span>or</span> <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> drive</div>
-    <div><kbd>Space</kbd> handbrake &nbsp; <kbd>C</kbd>camera</div>
-    <div><kbd>M</kbd> mode &nbsp; <kbd>R</kbd> restart &nbsp; <kbd>P</kbd> pause</div>
-  </div>
-
-</div>
-
-<!-- ── Countdown ─────────────────────────────────────────────────────────── -->
-<div id="countdown" class="hidden"><span id="countdown-text">3</span></div>
-
-<!-- ── Paused ────────────────────────────────────────────────────────────── -->
-<div id="paused" class="overlay hidden">
-  <div class="card">
-    <h2>Paused</h2>
-    <p>Press <kbd>P</kbd> to resume, or <kbd>R</kbd> to restart the race.</p>
-  </div>
-</div>
-
-<!-- ── Results ───────────────────────────────────────────────────────────── -->
-<div id="results" class="overlay hidden">
-  <div class="card">
-    <h2 id="results-title">Race Complete</h2>
-    <table class="results-table"><tbody id="results-rows"></tbody></table>
-    <div class="results-total">
-      <span class="label">TOTAL</span><span id="results-total">—</span>
+  <!-- ── Paused ────────────────────────────────────────────────────────────── -->
+  <div id="paused" class="overlay hidden">
+    <div class="card">
+      <h2>Paused</h2>
+      <p>Press <kbd>P</kbd> to resume, or <kbd>R</kbd> to restart the race.</p>
     </div>
-    <div class="results-best" id="results-best"></div>
-    <p class="results-hint">Press <kbd>R</kbd> to race again</p>
   </div>
-</div>
 
-<!-- ── Fatal error (e.g. no WebGL) ───────────────────────────────────────── -->
-<div id="fatal" class="overlay hidden">
-  <div class="card">
-    <h2>Can't start the game </h2>
-    <p id="fatal-message"></p>
+  <!-- ── Results ───────────────────────────────────────────────────────────── -->
+  <div id="results" class="overlay hidden">
+    <div class="card">
+      <h2 id="results-title">Race Complete</h2>
+      <table class="results-table">
+        <tbody id="results-rows"></tbody>
+      </table>
+      <div class="results-total">
+        <span class="label">TOTAL</span><span id="results-total">—</span>
+      </div>
+      <div class="results-best" id="results-best"></div>
+      <p class="results-hint">Press <kbd>R</kbd> to race again</p>
+    </div>
   </div>
-</div>
 
-<script type="module" src="js/main.js"></script>
+  <!-- ── Fatal error (e.g. no WebGL) ───────────────────────────────────────── -->
+  <div id="fatal" class="overlay hidden">
+    <div class="card">
+      <h2>Can't start the game </h2>
+      <p id="fatal-message"></p>
+    </div>
+  </div>
+
+  <script type="module" src="js/main.js"></script>
 </body>
+
 </html>

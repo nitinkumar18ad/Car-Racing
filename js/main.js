@@ -9,7 +9,7 @@ import {
   Vector3,
 } from 'three';
 
-import { CAMERA, MODES, RENDER } from './config.js';
+import { CAMERA, MODES, RENDER, getEnvironment } from './config.js';
 import { Track } from './track.js';
 import { Car } from './car.js';
 import { ChaseCamera } from './chase-camera.js';
@@ -27,7 +27,7 @@ function readModeId() {
     try { return window.localStorage.getItem(MODE_STORAGE_KEY); } catch { return null; }
   })();
   const mode = urlMode || storedMode;
-  return mode === MODES.timeLap.id ? MODES.timeLap.id : MODES.circuit.id;
+  return mode === MODES.circuit.id ? MODES.circuit.id : MODES.timeLap.id;
 }
 
 function switchMode(currentModeId) {
@@ -42,6 +42,7 @@ function switchMode(currentModeId) {
 function start() {
   const canvas = document.getElementById('scene');
   const modeId = readModeId();
+  const env = getEnvironment(modeId);
 
   /* ── Renderer ──────────────────────────────────────────────────────────
      Construction throws if WebGL is unavailable, which is the one startup
@@ -59,7 +60,7 @@ function start() {
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, RENDER.maxPixelRatio));
   renderer.setSize(window.innerWidth, window.innerHeight, false);
   renderer.toneMapping = ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.05;
+  renderer.toneMappingExposure = env.exposure;
   renderer.shadowMap.enabled = true;
   // PCFSoftShadowMap was deprecated in r185 and silently falls back to this.
   renderer.shadowMap.type = PCFShadowMap;
@@ -71,10 +72,10 @@ function start() {
     CAMERA.fov, window.innerWidth / window.innerHeight, CAMERA.near, CAMERA.far,
   );
 
-  const sky = createSky();
+  const sky = createSky(modeId);
   scene.add(sky);
 
-  const { sun } = createLighting(scene);
+  const { sun } = createLighting(scene, modeId);
 
   const track = new Track(modeId);
   scene.add(track.group);
@@ -132,7 +133,7 @@ function start() {
     // shows.
     skyAnchor.copy(camera.position);
     sky.position.set(skyAnchor.x, 0, skyAnchor.z);
-    updateShadowFrustum(sun, car.position);
+    updateShadowFrustum(sun, car.position, track.mode.id);
 
     renderer.render(scene, camera);
     requestAnimationFrame(frame);
@@ -141,7 +142,7 @@ function start() {
   requestAnimationFrame(frame);
 
   // Handy for poking at state from the console while tuning.
-  window.game = { game, car, track, scene, renderer, camera, chaseCamera };
+  window.game = { game, car, track, scene, renderer, camera, chaseCamera, audio: game.audio };
 }
 
 function showFatal(message) {

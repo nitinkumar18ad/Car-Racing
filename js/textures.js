@@ -45,7 +45,7 @@ function makeRandom(seed) {
     // xorshift32 — plenty of quality for scattering noise pixels.
     state ^= state << 13; state >>>= 0;
     state ^= state >> 17;
-    state ^= state << 5;  state >>>= 0;
+    state ^= state << 5; state >>>= 0;
     return state / 0xffffffff;
   };
 }
@@ -175,20 +175,28 @@ export function createKerbTexture(repeatY) {
    Grass — the verge either side of the track.
    ══════════════════════════════════════════════════════════════════════════ */
 
-export function createGrassTexture(repeatX, repeatY) {
+export function createGrassTexture(repeatX, repeatY, modeId = 'time-lap') {
   const W = 256;
   const H = 256;
   const ctx = surface(W, H);
   const random = makeRandom(0x9a5511);
 
-  ctx.fillStyle = '#5f7344';
+  const isCircuit = modeId === 'circuit';
+  // Rich emerald championship turf for circuit, fresh parkland green for time-lap
+  ctx.fillStyle = isCircuit ? '#3d5930' : '#5f7344';
   ctx.fillRect(0, 0, W, H);
 
-  // Broad mown patches in alternating tones.
+  // Broad patches in alternating tones.
   for (let i = 0; i < 60; i++) {
-    ctx.fillStyle = random() > 0.5
-      ? `rgba(126,150,86,${0.10 + random() * 0.20})`
-      : `rgba(62,80,44,${0.10 + random() * 0.22})`;
+    if (isCircuit) {
+      ctx.fillStyle = random() > 0.5
+        ? `rgba(78, 122, 58, ${0.12 + random() * 0.22})`
+        : `rgba(42, 68, 32, ${0.12 + random() * 0.22})`;
+    } else {
+      ctx.fillStyle = random() > 0.5
+        ? `rgba(126,150,86,${0.10 + random() * 0.20})`
+        : `rgba(62,80,44,${0.10 + random() * 0.22})`;
+    }
     const r = 20 + random() * 70;
     ctx.beginPath();
     ctx.ellipse(random() * W, random() * H, r, r * (0.4 + random() * 0.8), random() * Math.PI, 0, Math.PI * 2);
@@ -198,9 +206,15 @@ export function createGrassTexture(repeatX, repeatY) {
   // Individual blades, drawn as short strokes at varied angles.
   for (let i = 0; i < 4200; i++) {
     const shade = 0.10 + random() * 0.30;
-    ctx.strokeStyle = random() > 0.42
-      ? `rgba(140,168,96,${shade})`
-      : `rgba(52,70,38,${shade})`;
+    if (isCircuit) {
+      ctx.strokeStyle = random() > 0.42
+        ? `rgba(96, 148, 68, ${shade})`
+        : `rgba(38, 60, 28, ${shade})`;
+    } else {
+      ctx.strokeStyle = random() > 0.42
+        ? `rgba(140,168,96,${shade})`
+        : `rgba(52,70,38,${shade})`;
+    }
     ctx.lineWidth = 1;
     const x = random() * W;
     const y = random() * H;
@@ -213,6 +227,105 @@ export function createGrassTexture(repeatX, repeatY) {
   }
 
   return toTexture(ctx.canvas, { repeatX, repeatY });
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Sky Dome Texture
+   ══════════════════════════════════════════════════════════════════════════ */
+
+export function createSkyTexture(modeId = 'time-lap') {
+  const W = 1024;
+  const H = 512;
+  const ctx = surface(W, H);
+  const random = makeRandom(0x42fed);
+
+  if (modeId === 'circuit') {
+    // Cool Twilight / Dusk Purple-Rose Atmosphere (Zero Yellow or Amber)
+    const skyGrad = ctx.createLinearGradient(0, 0, 0, H);
+    skyGrad.addColorStop(0.00, '#120b22'); // Deep midnight indigo zenith
+    skyGrad.addColorStop(0.24, '#24143d'); // Deep twilight purple
+    skyGrad.addColorStop(0.48, '#481c54'); // Royal violet-purple
+    skyGrad.addColorStop(0.68, '#6d2b63'); // Twilight violet-plum
+    skyGrad.addColorStop(0.84, '#8a3c75'); // Rich dusk magenta-rose
+    skyGrad.addColorStop(0.95, '#854b73'); // Soft dusk rose
+    skyGrad.addColorStop(1.00, '#754b6c'); // Cool dusk horizon matching fog
+    ctx.fillStyle = skyGrad;
+    ctx.fillRect(0, 0, W, H);
+
+    // Glowing twilight celestial disk near horizon with cool pearl-rose luminescence
+    const sunX = W * 0.42;
+    const sunY = H * 0.76;
+    const sunGlow = ctx.createRadialGradient(sunX, sunY, 8, sunX, sunY, 150);
+    sunGlow.addColorStop(0.0, 'rgba(255, 255, 255, 0.98)');
+    sunGlow.addColorStop(0.2, 'rgba(250, 225, 245, 0.50)');
+    sunGlow.addColorStop(0.5, 'rgba(195, 130, 180, 0.18)');
+    sunGlow.addColorStop(1.0, 'rgba(140, 60, 130, 0)');
+    ctx.fillStyle = sunGlow;
+    ctx.beginPath();
+    ctx.arc(sunX, sunY, 150, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Soft dusk cirrus cloud bands in violet-pink and cool silver
+    for (let c = 0; c < 22; c++) {
+      const cy = H * (0.35 + random() * 0.45);
+      const cx = random() * W;
+      const cw = 120 + random() * 260;
+      const ch = 8 + random() * 22;
+      const cloudGrad = ctx.createRadialGradient(cx, cy, 4, cx, cy, cw / 2);
+      cloudGrad.addColorStop(0.0, `rgba(235, 195, 225, ${0.14 + random() * 0.16})`);
+      cloudGrad.addColorStop(0.6, `rgba(180, 120, 170, ${0.06 + random() * 0.08})`);
+      cloudGrad.addColorStop(1.0, 'rgba(120, 50, 120, 0)');
+      ctx.fillStyle = cloudGrad;
+      ctx.beginPath();
+      ctx.ellipse(cx, cy, cw / 2, ch, (random() - 0.5) * 0.15, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  } else {
+    // Grand Prix Circuit Daytime Atmosphere
+    const skyGrad = ctx.createLinearGradient(0, 0, 0, H);
+    skyGrad.addColorStop(0.00, '#1c5b96'); // Deep zenith blue
+    skyGrad.addColorStop(0.40, '#4484be'); // Vibrant blue
+    skyGrad.addColorStop(0.75, '#84b6dc'); // Soft sky blue
+    skyGrad.addColorStop(0.95, '#bed6ea'); // Matching fog horizon
+    skyGrad.addColorStop(1.00, '#d2e4f2'); // Horizon haze
+    ctx.fillStyle = skyGrad;
+    ctx.fillRect(0, 0, W, H);
+
+    // Afternoon sun flare
+    const sunX = W * 0.35;
+    const sunY = H * 0.30;
+    const sunGlow = ctx.createRadialGradient(sunX, sunY, 5, sunX, sunY, 140);
+    sunGlow.addColorStop(0.0, 'rgba(255, 255, 250, 0.95)');
+    sunGlow.addColorStop(0.2, 'rgba(255, 240, 200, 0.45)');
+    sunGlow.addColorStop(1.0, 'rgba(255, 255, 255, 0)');
+    ctx.fillStyle = sunGlow;
+    ctx.beginPath();
+    ctx.arc(sunX, sunY, 140, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Cumulus clouds
+    for (let c = 0; c < 30; c++) {
+      const cy = H * (0.32 + random() * 0.40);
+      const cx = random() * W;
+      const cw = 90 + random() * 220;
+      const ch = 14 + random() * 28;
+      const cloudGrad = ctx.createRadialGradient(cx, cy, 6, cx, cy, cw / 2);
+      cloudGrad.addColorStop(0.0, `rgba(255, 255, 255, ${0.22 + random() * 0.28})`);
+      cloudGrad.addColorStop(0.6, `rgba(230, 240, 250, ${0.10 + random() * 0.15})`);
+      cloudGrad.addColorStop(1.0, 'rgba(210, 230, 250, 0)');
+      ctx.fillStyle = cloudGrad;
+      ctx.beginPath();
+      ctx.ellipse(cx, cy, cw / 2, ch, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  const texture = new CanvasTexture(ctx.canvas);
+  texture.colorSpace = SRGBColorSpace;
+  texture.wrapS = RepeatWrapping;
+  texture.wrapT = ClampToEdgeWrapping;
+  texture.anisotropy = 8;
+  return texture;
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -517,80 +630,7 @@ export function createFoliageTexture() {
   return texture;
 }
 
-/* ══════════════════════════════════════════════════════════════════════════
-   Sky — vertical gradient with a haze band and a few soft clouds.
-   Applied to the inside of a large sphere.
-   ══════════════════════════════════════════════════════════════════════════ */
 
-export function createSkyTexture() {
-  const W = 1024;
-  const H = 512;
-  const ctx = surface(W, H);
-  const random = makeRandom(0x5c1ee);
-
-  const zenith = '#' + WORLD.zenithColor.toString(16).padStart(6, '0');
-  const horizon = '#' + WORLD.horizonColor.toString(16).padStart(6, '0');
-
-  // Deep atmosphere gradient
-  const gradient = ctx.createLinearGradient(0, 0, 0, H);
-  gradient.addColorStop(0.00, zenith);
-  gradient.addColorStop(0.28, '#4484be');
-  gradient.addColorStop(0.48, horizon);
-  gradient.addColorStop(0.56, horizon);
-  gradient.addColorStop(1.00, '#8aa27e');
-  ctx.fillStyle = gradient;
-  ctx.fillRect(0, 0, W, H);
-
-  // Wispy high-altitude cirrus streaks across the upper hemisphere
-  for (let i = 0; i < 18; i++) {
-    const y = H * (0.04 + random() * 0.22);
-    const x = random() * W;
-    const len = 120 + random() * 320;
-    const h = 4 + random() * 10;
-    const cirrusGrad = ctx.createLinearGradient(x, y, x + len, y + h);
-    cirrusGrad.addColorStop(0, 'rgba(255,255,255,0)');
-    cirrusGrad.addColorStop(0.5, `rgba(255,255,255,${0.08 + random() * 0.14})`);
-    cirrusGrad.addColorStop(1, 'rgba(255,255,255,0)');
-    ctx.fillStyle = cirrusGrad;
-    ctx.beginPath();
-    ctx.ellipse(x + len / 2, y, len / 2, h, 0.05 * (random() - 0.5), 0, Math.PI * 2);
-    ctx.fill();
-  }
-
-  // Soft cumulus clouds near horizon
-  for (let i = 0; i < 30; i++) {
-    const cx = random() * W;
-    const cy = H * (0.16 + random() * 0.26);
-    const scale = 0.6 + random() * 1.6;
-    const puffs = 6 + ((random() * 8) | 0);
-    for (let p = 0; p < puffs; p++) {
-      const px = cx + (random() - 0.5) * 160 * scale;
-      const py = cy + (random() - 0.5) * 28 * scale;
-      const rx = (24 + random() * 55) * scale;
-      const ry = rx * (0.32 + random() * 0.32);
-      ctx.fillStyle = `rgba(255,255,255,${0.12 + random() * 0.22})`;
-      ctx.beginPath();
-      ctx.ellipse(px, py, rx, ry, 0, 0, Math.PI * 2);
-      ctx.fill();
-    }
-  }
-
-  // Warm atmospheric sun bloom near the sun azimuth
-  const glow = ctx.createRadialGradient(W * 0.70, H * 0.20, 0, W * 0.70, H * 0.20, W * 0.34);
-  glow.addColorStop(0, 'rgba(255,248,220,0.65)');
-  glow.addColorStop(0.3, 'rgba(255,240,195,0.28)');
-  glow.addColorStop(1, 'rgba(255,240,195,0)');
-  ctx.fillStyle = glow;
-  ctx.fillRect(0, 0, W, H);
-
-  const texture = new CanvasTexture(ctx.canvas);
-  texture.colorSpace = SRGBColorSpace;
-  texture.wrapS = RepeatWrapping;
-  texture.wrapT = ClampToEdgeWrapping;
-  texture.minFilter = LinearFilter;
-  texture.magFilter = LinearFilter;
-  return texture;
-}
 
 /* ══════════════════════════════════════════════════════════════════════════
    Roadside Bush & Shrub Foliage Texture
@@ -606,14 +646,14 @@ export function createBushTexture() {
 
   const clumps = [
     { x: 128, y: 160, r: 66, c: '#234a17' },
-    { x: 78,  y: 172, r: 54, c: '#1e4014' },
+    { x: 78, y: 172, r: 54, c: '#1e4014' },
     { x: 178, y: 172, r: 54, c: '#1e4014' },
-    { x: 96,  y: 124, r: 56, c: '#2c591c' },
+    { x: 96, y: 124, r: 56, c: '#2c591c' },
     { x: 160, y: 124, r: 56, c: '#2c591c' },
-    { x: 128, y: 96,  r: 58, c: '#387024' },
-    { x: 86,  y: 82,  r: 46, c: '#44852e' },
-    { x: 170, y: 82,  r: 46, c: '#44852e' },
-    { x: 128, y: 62,  r: 44, c: '#56a23a' },
+    { x: 128, y: 96, r: 58, c: '#387024' },
+    { x: 86, y: 82, r: 46, c: '#44852e' },
+    { x: 170, y: 82, r: 46, c: '#44852e' },
+    { x: 128, y: 62, r: 44, c: '#56a23a' },
   ];
 
   for (const clump of clumps) {

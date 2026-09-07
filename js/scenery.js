@@ -14,7 +14,7 @@ import {
   MeshStandardMaterial, PlaneGeometry, Quaternion, SphereGeometry, Vector3,
 } from 'three';
 
-import { TRACK, WORLD } from './config.js';
+import { TRACK, WORLD, getEnvironment } from './config.js';
 import {
   createBarkTexture, createBushTexture, createFoliageTexture, createGantryBannerTexture,
   createGrandstandCrowdTexture, createSkyTexture, createSponsorBannerTexture, createTireWallTexture,
@@ -26,7 +26,7 @@ function makeRandom(seed) {
   return () => {
     state ^= state << 13; state >>>= 0;
     state ^= state >> 17;
-    state ^= state << 5;  state >>>= 0;
+    state ^= state << 5; state >>>= 0;
     return state / 0xffffffff;
   };
 }
@@ -35,11 +35,11 @@ function makeRandom(seed) {
    Sky
    ══════════════════════════════════════════════════════════════════════════ */
 
-export function createSky() {
+export function createSky(modeId = 'time-lap') {
   const sky = new Mesh(
     new SphereGeometry(1100, 40, 24),
     new MeshBasicMaterial({
-      map: createSkyTexture(),
+      map: createSkyTexture(modeId),
       side: BackSide,
       depthWrite: false,
       fog: false,
@@ -54,16 +54,17 @@ export function createSky() {
    Lighting & Atmosphere
    ══════════════════════════════════════════════════════════════════════════ */
 
-export function createLighting(scene) {
-  scene.fog = new FogExp2(WORLD.horizonColor, WORLD.fogDensity);
+export function createLighting(scene, modeId = 'time-lap') {
+  const env = getEnvironment(modeId);
+  scene.fog = new FogExp2(env.horizonColor, env.fogDensity);
 
   const hemisphere = new HemisphereLight(
-    0xa8d2f5, WORLD.groundColor, WORLD.hemiIntensity,
+    env.hemiSkyColor, env.hemiGroundColor, env.hemiIntensity,
   );
   scene.add(hemisphere);
 
-  const sun = new DirectionalLight(0xfff4e0, WORLD.sunIntensity);
-  sun.position.set(...WORLD.sunPosition);
+  const sun = new DirectionalLight(env.sunColor, env.sunIntensity);
+  sun.position.set(...env.sunPosition);
   sun.castShadow = true;
 
   const radius = WORLD.shadowRadius;
@@ -73,18 +74,19 @@ export function createLighting(scene) {
   sun.shadow.camera.top = radius;
   sun.shadow.camera.bottom = -radius;
   sun.shadow.camera.near = 1;
-  sun.shadow.camera.far = 520;
+  sun.shadow.camera.far = 560;
   sun.shadow.bias = -0.0003;
   sun.shadow.normalBias = 0.05;
   scene.add(sun);
 
-  return sun;
+  return { sun, hemisphere };
 }
 
 const SUN_DIRECTION = new Vector3();
-export function updateShadowFrustum(sun, focus) {
+export function updateShadowFrustum(sun, focus, modeId = 'time-lap') {
   if (!sun || !sun.target || !focus) return;
-  SUN_DIRECTION.set(...WORLD.sunPosition).normalize();
+  const env = getEnvironment(modeId);
+  SUN_DIRECTION.set(...env.sunPosition).normalize();
 
   const texelSize = (WORLD.shadowRadius * 2) / WORLD.shadowMapSize;
   const snap = (value) => Math.round(value / texelSize) * texelSize;
@@ -316,6 +318,7 @@ export function createScenery(track) {
   const group = new Group();
   group.name = 'scenery';
 
+  const env = getEnvironment(track.mode.id);
   const random = makeRandom(0x7a3e91);
   const samples = track.samples;
   const barrier = track.wallLateral;
@@ -357,14 +360,9 @@ export function createScenery(track) {
   trunks.name = 'tree-trunks';
   foliage.name = 'tree-foliage';
 
-  const leafPalette = [
-    new Color(0x326922),
-    new Color(0x43852b),
-    new Color(0x569a35),
-    new Color(0x3a7527),
-    new Color(0x62a33c),
-    new Color(0x2d5f1f),
-  ];
+  const leafPalette = (env.leafPalette || [
+    0x326922, 0x43852b, 0x569a35, 0x3a7527, 0x62a33c, 0x2d5f1f,
+  ]).map((hex) => new Color(hex));
 
   for (let i = 0; i < WORLD.treeCount; i++) {
     const sample = samples[(random() * samples.length) | 0];
@@ -411,13 +409,9 @@ export function createScenery(track) {
   bushes.receiveShadow = true;
   bushes.name = 'bushes';
 
-  const bushPalette = [
-    new Color(0x28591a),
-    new Color(0x3a7526),
-    new Color(0x4e9334),
-    new Color(0x336821),
-    new Color(0x5ba43d),
-  ];
+  const bushPalette = (env.bushPalette || [
+    0x28591a, 0x3a7526, 0x4e9334, 0x336821, 0x5ba43d,
+  ]).map((hex) => new Color(hex));
 
   for (let i = 0; i < bushCount; i++) {
     const sample = samples[(random() * samples.length) | 0];
@@ -514,51 +508,53 @@ export function createScenery(track) {
 
   /* ── Trackside Sponsor Billboards ───────────────────────────────────── */
 
-  const sponsorCount = WORLD.sponsorBannerCount || 34;
-  const bannerGeom = new BoxGeometry(4.8, 1.22, 0.16);
-  bannerGeom.translate(0, 0.61, 0);
+  if (env.showSponsors) {
+    const sponsorCount = WORLD.sponsorBannerCount || 34;
+    const bannerGeom = new BoxGeometry(4.8, 1.22, 0.16);
+    bannerGeom.translate(0, 0.61, 0);
 
-  // 4 sponsor variations distributed along track
-  for (let v = 0; v < 4; v++) {
-    const perVariant = Math.ceil(sponsorCount / 4);
-    const boards = new InstancedMesh(
-      bannerGeom,
-      new MeshStandardMaterial({
-        map: createSponsorBannerTexture(v),
-        roughness: 0.45,
-        metalness: 0.25,
-      }),
-      perVariant,
-    );
-    boards.castShadow = true;
-    boards.receiveShadow = true;
-    boards.name = `sponsor-boards-${v}`;
+    // 4 sponsor variations distributed along track
+    for (let v = 0; v < 4; v++) {
+      const perVariant = Math.ceil(sponsorCount / 4);
+      const boards = new InstancedMesh(
+        bannerGeom,
+        new MeshStandardMaterial({
+          map: createSponsorBannerTexture(v),
+          roughness: 0.45,
+          metalness: 0.25,
+        }),
+        perVariant,
+      );
+      boards.castShadow = true;
+      boards.receiveShadow = true;
+      boards.name = `sponsor-boards-${v}`;
 
-    let bWritten = 0;
-    const bSpacing = Math.floor(samples.length / sponsorCount);
-    for (let s = v; s < sponsorCount && bWritten < perVariant; s += 4) {
-      const sIdx = (s * bSpacing + 12) % samples.length;
-      const sample = samples[sIdx];
-      const side = s % 2 === 0 ? 1 : -1;
-      const lateral = side * (barrier + 1.25);
+      let bWritten = 0;
+      const bSpacing = Math.floor(samples.length / sponsorCount);
+      for (let s = v; s < sponsorCount && bWritten < perVariant; s += 4) {
+        const sIdx = (s * bSpacing + 12) % samples.length;
+        const sample = samples[sIdx];
+        const side = s % 2 === 0 ? 1 : -1;
+        const lateral = side * (barrier + 1.25);
 
-      track.groundPoint(sample, lateral, position);
-      quaternion.setFromUnitVectors(FORWARD_Z, sample.tangent);
+        track.groundPoint(sample, lateral, position);
+        quaternion.setFromUnitVectors(FORWARD_Z, sample.tangent);
 
-      matrix.compose(position, quaternion, ONE);
-      boards.setMatrixAt(bWritten++, matrix);
+        matrix.compose(position, quaternion, ONE);
+        boards.setMatrixAt(bWritten++, matrix);
+      }
+      for (let i = bWritten; i < perVariant; i++) {
+        matrix.compose(HIDDEN, noRotation, ONE);
+        boards.setMatrixAt(i, matrix);
+      }
+      boards.instanceMatrix.needsUpdate = true;
+      group.add(boards);
     }
-    for (let i = bWritten; i < perVariant; i++) {
-      matrix.compose(HIDDEN, noRotation, ONE);
-      boards.setMatrixAt(i, matrix);
-    }
-    boards.instanceMatrix.needsUpdate = true;
-    group.add(boards);
   }
 
   /* ── Spectator Grandstands ──────────────────────────────────────────── */
 
-  if (track.closed) {
+  if (env.showGrandstands && track.closed) {
     // Grand Prix Circuit spectator locations
     const standIndices = [
       { idx: 10, side: 1 },
@@ -567,20 +563,6 @@ export function createScenery(track) {
       { idx: 150, side: 1 },
       { idx: 240, side: -1 },
       { idx: Math.max(0, samples.length - 40), side: 1 },
-    ];
-    for (const s of standIndices) {
-      group.add(createGrandstand({ track, sampleIndex: s.idx, side: s.side }));
-    }
-  } else {
-    // Sprint / Time Lap spectator locations along the run
-    const startIdx = track.timingStartIndex;
-    const finishIdx = track.timingFinishIndex;
-    const standIndices = [
-      { idx: startIdx + 8, side: 1 },
-      { idx: startIdx + 45, side: -1 },
-      { idx: Math.floor((startIdx + finishIdx) / 2), side: 1 },
-      { idx: finishIdx - 50, side: -1 },
-      { idx: finishIdx - 14, side: 1 },
     ];
     for (const s of standIndices) {
       group.add(createGrandstand({ track, sampleIndex: s.idx, side: s.side }));

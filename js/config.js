@@ -232,6 +232,76 @@ export const WORLD = {
   sponsorBannerCount: 34,
 };
 
+export const ENVIRONMENTS = {
+  'circuit': {
+    id: 'circuit',
+    name: 'Circuit',
+    zenithColor: 0x140b24, // Deep midnight indigo
+    horizonColor: 0x754b6c, // Cool twilight mauve/rose fog (no yellowish or orange haze)
+    skyMidColor: '#5c2259', // Twilight plum/violet
+    groundColor: 0x3d5930, // Rich green championship turf ground
+    fogDensity: 0.0018,
+    sunPosition: [280, 135, -170], // Dramatic low-angle twilight sun
+    sunColor: 0xfff0f6, // Crisp neutral soft-white light (clean white markings, no yellow cast)
+    sunIntensity: 2.85,
+    hemiSkyColor: 0x9b7ab5, // Cool lavender sky bounce
+    hemiGroundColor: 0x243b1e, // Deep green turf bounce
+    hemiIntensity: 1.25,
+    exposure: 1.05,
+    leafPalette: [
+      0x275522, // Rich forest green
+      0x34692c, // Vibrant green
+      0x1f441b, // Deep pine green
+      0x3d7b34, // Fresh emerald green
+      0x2c5025, // Cool spruce green
+      0x4a8c3e, // Bright leaf green
+    ],
+    bushPalette: [
+      0x22491e, // Deep hedge green
+      0x2f5f29, // Shrub green
+      0x3d7434, // Vibrant foliage green
+      0x1b3c18, // Shadow green
+      0x48853d, // Highlight green
+    ],
+    treeCount: 520,
+    bushCount: 360,
+    showGrandstands: true,
+    showSponsors: true,
+    showTireWalls: true,
+  },
+  'time-lap': {
+    id: 'time-lap',
+    name: 'Time Lap',
+    zenithColor: 0x27649f,
+    horizonColor: 0xbed6ea,
+    skyMidColor: '#4484be',
+    groundColor: 0x5a6d46,
+    fogDensity: 0.0019,
+    sunPosition: [190, 240, 130],
+    sunColor: 0xfff4df,
+    sunIntensity: 2.8,
+    hemiSkyColor: 0xa8d2f5,
+    hemiGroundColor: 0x5a6d46,
+    hemiIntensity: 1.25,
+    exposure: 1.05,
+    leafPalette: [
+      0x326922, 0x43852b, 0x569a35, 0x3a7527, 0x62a33c, 0x2d5f1f,
+    ],
+    bushPalette: [
+      0x28591a, 0x3a7526, 0x4e9334, 0x336821, 0x5ba43d,
+    ],
+    treeCount: 460,
+    bushCount: 320,
+    showGrandstands: false, // Scenic open mountain road without commercial stadium bleachers
+    showSponsors: false,    // Pristine mountain sprint vista without billboards
+    showTireWalls: true,
+  },
+};
+
+export function getEnvironment(modeId = 'time-lap') {
+  return ENVIRONMENTS[modeId] || ENVIRONMENTS['time-lap'];
+}
+
 export const RENDER = {
   maxPixelRatio: 2,
   /** Physics tick. Fixed so handling is identical at 60Hz and 144Hz. */
@@ -240,4 +310,4 @@ export const RENDER = {
   maxFrameTime: 0.25,
 };
 
-export const STORAGE_KEY = MODES.circuit.storageKey;
+export const STORAGE_KEY = MODES.timeLap.storageKey;

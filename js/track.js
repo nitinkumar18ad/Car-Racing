@@ -44,39 +44,39 @@ const LAYOUT_SCALE = 1.2;
 
 const CIRCUIT_CONTROL_POINTS = [
   // Main straight, heading +X. Start/finish sits at the first point.
-  [-340,   0, -250],
-  [-180,   0, -253],
-  [ -20,   0, -254],
-  [ 140,   0, -250],
+  [-340, 0, -250],
+  [-180, 0, -253],
+  [-20, 0, -254],
+  [140, 0, -250],
   // Fast right-hand sweeper, starting to climb.
-  [ 250,   1, -228],
-  [ 330,   3, -170],
-  [ 368,   6,  -86],
+  [250, 1, -228],
+  [330, 3, -170],
+  [368, 6, -86],
   // Crest — you cannot see the exit until you are over it.
-  [ 372,   8,    0],
-  [ 350,   7,   84],
-  [ 300,   5,  150],
+  [372, 8, 0],
+  [350, 7, 84],
+  [300, 5, 150],
   // Approach and tight left hairpin.
-  [ 232,   4,  188],
-  [ 176,   4,  198],
-  [ 148,   4,  166],
-  [ 170,   4,  126],
-  [ 212,   3,   98],
+  [232, 4, 188],
+  [176, 4, 198],
+  [148, 4, 166],
+  [170, 4, 126],
+  [212, 3, 98],
   // Downhill S-chicane.
-  [ 250,   2,   56],
-  [ 226,   1,   12],
-  [ 168,   0,   -8],
-  [ 110,   0,   26],
-  [  40,  -1,   70],
+  [250, 2, 56],
+  [226, 1, 12],
+  [168, 0, -8],
+  [110, 0, 26],
+  [40, -1, 70],
   // Long sweeping left all the way down the far side.
-  [ -60,  -2,  120],
-  [-170,  -3,  150],
-  [-268,  -3,  128],
-  [-336,  -2,   68],
-  [-372,  -1,  -20],
+  [-60, -2, 120],
+  [-170, -3, 150],
+  [-268, -3, 128],
+  [-336, -2, 68],
+  [-372, -1, -20],
   // Kink that feeds back onto the main straight.
-  [-392,   0, -110],
-  [-370,   0, -198],
+  [-392, 0, -110],
+  [-370, 0, -198],
 ];
 
 const TIME_LAP_CONTROL_POINTS = [
@@ -84,19 +84,19 @@ const TIME_LAP_CONTROL_POINTS = [
   [-430, 0, -210],
   [-300, 0, -210],
   [-160, 0, -210],
-  [ -20, 0, -208],
-  [ 120, 1, -198],
-  [ 230, 3, -160],
-  [ 292, 5,  -82],
-  [ 275, 6,   -6],
-  [ 198, 4,   52],
-  [  88, 2,   72],
-  [ -14, 1,  118],
-  [ -48, 0,  198],
-  [  18, 0,  272],
-  [ 142, 1,  298],
-  [ 290, 2,  292],
-  [ 420, 2,  286],
+  [-20, 0, -208],
+  [120, 1, -198],
+  [230, 3, -160],
+  [292, 5, -82],
+  [275, 6, -6],
+  [198, 4, 52],
+  [88, 2, 72],
+  [-14, 1, 118],
+  [-48, 0, 198],
+  [18, 0, 272],
+  [142, 1, 298],
+  [290, 2, 292],
+  [420, 2, 286],
 ];
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -146,7 +146,7 @@ function buildStrip(samples, emit, normalFor, closed) {
   for (let i = 0; i < segmentCount; i++) {
     const v = i * 2;
     const o = i * 6;
-    indices[o + 0] = v;     indices[o + 1] = v + 1; indices[o + 2] = v + 2;
+    indices[o + 0] = v; indices[o + 1] = v + 1; indices[o + 2] = v + 2;
     indices[o + 3] = v + 1; indices[o + 4] = v + 3; indices[o + 5] = v + 2;
   }
 
@@ -179,7 +179,7 @@ function surfaceRibbon(samples, spacing, latA, latB, liftA, liftB, vPerMetre, uS
         .addScaledVector(sample.up, liftA).add(sample.position);
       b.copy(sample.right).multiplyScalar(latB)
         .addScaledVector(sample.up, liftB).add(sample.position);
-      uv[0] = 0;     uv[1] = distance * vPerMetre;
+      uv[0] = 0; uv[1] = distance * vPerMetre;
       uv[2] = uSpan; uv[3] = distance * vPerMetre;
     },
     (sample, normal) => normal.copy(sample.up),
@@ -250,8 +250,8 @@ function smoothValues(values, window, closed) {
    ══════════════════════════════════════════════════════════════════════════ */
 
 export class Track {
-  constructor(modeId = MODES.circuit.id) {
-    this.mode = modeId === MODES.timeLap.id ? MODES.timeLap : MODES.circuit;
+  constructor(modeId = MODES.timeLap.id) {
+    this.mode = modeId === MODES.circuit.id ? MODES.circuit : MODES.timeLap;
     this.closed = this.mode.id === MODES.circuit.id;
     const controlPoints = this.closed ? CIRCUIT_CONTROL_POINTS : TIME_LAP_CONTROL_POINTS;
 
@@ -383,7 +383,7 @@ export class Track {
     // centreline plane at its far edge, which reads as drainage camber.
     const grassTileMetres = 1 / TRACK.grassRepeatPerMetre;
     const grassMaterial = new MeshStandardMaterial({
-      map: createGrassTexture(1, 1),
+      map: createGrassTexture(1, 1, this.mode.id),
       roughness: 0.95,
       metalness: 0,
     });

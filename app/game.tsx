@@ -19,8 +19,16 @@ export default function Game() {
       </div>
       <div id="hud" className="hidden" aria-live="polite">
         <div className="panel panel-timing">
-          <div className="mode-row"><span className="label">Mode</span><button id="mode-button" className="mode-button" type="button">Circuit</button></div>
-          <div className="lap-row"><span id="lap-label" className="label">Lap</span><span className="lap-count"><b id="lap-current">1</b><i>/</i><span id="lap-total">3</span></span></div>
+          <div className="mode-row">
+            <span className="label">Mode</span>
+            <div className="mode-actions">
+              <button id="mode-button" className="mode-button" type="button">Time Lap</button>
+              <button id="audio-button" className="audio-button" type="button" aria-label="Toggle sound (U)" title="Toggle sound (U)">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path><path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path></svg>
+              </button>
+            </div>
+          </div>
+          <div className="lap-row"><span id="lap-label" className="label">Run</span><span className="lap-count"><b id="lap-current">1</b><i>/</i><span id="lap-total">1</span></span></div>
           <div id="time-current" className="time-big">0:00.000</div>
           <div className="time-row"><span>LAST</span><span id="time-last">--</span></div>
           <div className="time-row"><span>BEST</span><span id="time-best">--</span></div>
@@ -28,9 +36,31 @@ export default function Game() {
         </div>
         <div className="panel panel-map"><canvas id="minimap" aria-label="Track map" /></div>
         <div className="panel panel-speed">
-          <div className="speed-readout"><span id="speed-value">000</span><small>KM/H</small></div><div id="gear" className="gear">N</div>
+          <div className="speed-main">
+            <div id="gear" className="gear">N</div>
+            <div className="speed-readout">
+              <span id="speed-value">0</span>
+              <small>KM/H</small>
+            </div>
+          </div>
+          <div className="speed-bar"><div id="speed-bar-fill" className="speed-bar-fill" /></div>
         </div>
-        <div className="panel panel-keys"><div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> DRIVE</div><div><kbd>SPACE</kbd> DRIFT</div><div><kbd>M</kbd> MODE <kbd>C</kbd> CAMERA <kbd>R</kbd> RESTART</div></div>
+        <div className="panel panel-keys">
+          <div className="keys-row">
+            <span className="keys-group"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd><span className="key-label">Drive</span></span>
+            <span className="keys-dot">•</span>
+            <span className="keys-group"><kbd>Space</kbd><span className="key-label">Drift</span></span>
+          </div>
+          <div className="keys-row">
+            <span className="keys-group"><kbd>C</kbd><span className="key-label">Cam</span></span>
+            <span className="keys-dot">•</span>
+            <span className="keys-group"><kbd>M</kbd><span className="key-label">Mode</span></span>
+            <span className="keys-dot">•</span>
+            <span className="keys-group"><kbd>U</kbd><span className="key-label">Sound</span></span>
+            <span className="keys-dot">•</span>
+            <span className="keys-group"><kbd>R</kbd><span className="key-label">Reset</span></span>
+          </div>
+        </div>
         <div id="offroad" className="offroad">OFF TRACK</div>
       </div>
       <div id="countdown" className="hidden"><span id="countdown-text">3</span></div>
