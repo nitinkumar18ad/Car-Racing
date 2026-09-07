@@ -67,6 +67,51 @@ export default function Game() {
       <div id="paused" className="overlay hidden"><div className="card"><h2>PAUSED</h2><p>Press P or Escape to resume</p></div></div>
       <div id="results" className="overlay hidden"><div className="card"><h2 id="results-title">RACE COMPLETE</h2><table className="results-table"><tbody id="results-rows" /></table><div className="results-total"><span>TOTAL</span><span id="results-total">--</span></div><div id="results-best" className="results-best" /><p className="results-hint">Press R to race again</p></div></div>
       <div id="fatal" className="overlay hidden" role="alert"><div className="card"><h2>UNABLE TO START</h2><p id="fatal-message" /></div></div>
+      <div id="device-notice" className="hidden" role="dialog" aria-modal="true" aria-labelledby="device-notice-title">
+        <div className="device-card">
+          <div className="device-glow-bar" />
+          <div className="device-badge">
+            <span className="device-pulse-dot" />
+            <span id="device-detected-type">Mobile Device Detected</span>
+          </div>
+          <div className="device-icon-wrap" aria-hidden="true">
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="2" y="3" width="20" height="14" rx="2" />
+              <line x1="8" y1="21" x2="16" y2="21" />
+              <line x1="12" y1="17" x2="12" y2="21" />
+            </svg>
+          </div>
+          <h2 id="device-notice-title" className="device-title">Optimized for PC Only</h2>
+          <p className="device-desc">
+            Apex Circuit is built for desktop browsers with high-performance 3D physics and keyboard controls. Open on your PC or Mac for the complete racing experience.
+          </p>
+          <div className="device-features">
+            <div className="device-feature-item">
+              <span className="device-feature-icon" aria-hidden="true">⌨️</span>
+              <span className="device-feature-title">Keyboard</span>
+              <span className="device-feature-detail">WASD / Arrow steering & drift</span>
+            </div>
+            <div className="device-feature-item">
+              <span className="device-feature-icon" aria-hidden="true">⚡</span>
+              <span className="device-feature-title">3D Engine</span>
+              <span className="device-feature-detail">High-FPS WebGL graphics</span>
+            </div>
+            <div className="device-feature-item">
+              <span className="device-feature-icon" aria-hidden="true">🏎️</span>
+              <span className="device-feature-title">Telemetry</span>
+              <span className="device-feature-detail">Delta lap timing & minimap</span>
+            </div>
+          </div>
+          <div className="device-actions">
+            <button id="device-copy-link" className="btn-primary-pc" type="button">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>
+              <span className="btn-text">Copy Link to Play on PC</span>
+            </button>
+            <div id="device-copy-toast" className="device-copy-toast" role="status" aria-live="polite" />
+            <button id="device-dismiss-button" className="btn-secondary-pc" type="button">Continue Anyway (Keyboard Required)</button>
+          </div>
+        </div>
+      </div>
     </main>
   );
 }

@@ -142,8 +142,55 @@
   <!-- ── Fatal error (e.g. no WebGL) ───────────────────────────────────────── -->
   <div id="fatal" class="overlay hidden">
     <div class="card">
-      <h2>Can't start the game </h2>
+      <h2>Can't start the game</h2>
       <p id="fatal-message"></p>
+    </div>
+  </div>
+
+  <!-- ── Device Notice: Mobile & Tablet Optimized for PC Only ────────── -->
+  <div id="device-notice" class="hidden" role="dialog" aria-modal="true" aria-labelledby="device-notice-title">
+    <div class="device-card">
+      <div class="device-glow-bar"></div>
+      <div class="device-badge">
+        <span class="device-pulse-dot"></span>
+        <span id="device-detected-type">Mobile Device Detected</span>
+      </div>
+      <div class="device-icon-wrap" aria-hidden="true">
+        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="2" y="3" width="20" height="14" rx="2"></rect>
+          <line x1="8" y1="21" x2="16" y2="21"></line>
+          <line x1="12" y1="17" x2="12" y2="21"></line>
+        </svg>
+      </div>
+      <h2 id="device-notice-title" class="device-title">Optimized for PC Only</h2>
+      <p class="device-desc">
+        Apex Circuit is built for desktop browsers with high-performance 3D physics and keyboard controls. Open on your PC or Mac for the complete racing experience.
+      </p>
+      <div class="device-features">
+        <div class="device-feature-item">
+          <span class="device-feature-icon" aria-hidden="true">⌨️</span>
+          <span class="device-feature-title">Keyboard</span>
+          <span class="device-feature-detail">WASD / Arrow steering & drift</span>
+        </div>
+        <div class="device-feature-item">
+          <span class="device-feature-icon" aria-hidden="true">⚡</span>
+          <span class="device-feature-title">3D Engine</span>
+          <span class="device-feature-detail">High-FPS WebGL graphics</span>
+        </div>
+        <div class="device-feature-item">
+          <span class="device-feature-icon" aria-hidden="true">🏎️</span>
+          <span class="device-feature-title">Telemetry</span>
+          <span class="device-feature-detail">Delta lap timing & minimap</span>
+        </div>
+      </div>
+      <div class="device-actions">
+        <button id="device-copy-link" class="btn-primary-pc" type="button">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+          <span class="btn-text">Copy Link to Play on PC</span>
+        </button>
+        <div id="device-copy-toast" class="device-copy-toast" role="status" aria-live="polite"></div>
+        <button id="device-dismiss-button" class="btn-secondary-pc" type="button">Continue Anyway (Keyboard Required)</button>
+      </div>
     </div>
   </div>
 

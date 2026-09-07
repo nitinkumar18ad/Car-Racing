@@ -678,3 +678,280 @@ kbd {
   #countdown span { font-size: 72px; }
 }
 
+/* ══════════════════════════════════════════════════════════════════════════
+   Optimized for PC Only — Mobile & Tablet Notice Overlay
+   ══════════════════════════════════════════════════════════════════════════ */
+
+#device-notice {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: radial-gradient(circle at 50% 30%, rgba(13, 19, 33, 0.88), rgba(6, 8, 12, 0.97));
+  backdrop-filter: blur(28px) saturate(180%);
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  overflow-y: auto;
+  animation: deviceNoticeFadeIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes deviceNoticeFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.device-card {
+  position: relative;
+  width: 100%;
+  max-width: 480px;
+  background: linear-gradient(180deg, rgba(20, 26, 38, 0.94) 0%, rgba(10, 14, 22, 0.98) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 20px;
+  padding: 32px 28px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(245, 158, 11, 0.12);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  overflow: hidden;
+}
+
+.device-glow-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #f59e0b, #00f0ff 50%, #f59e0b);
+}
+
+.device-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 14px;
+  border-radius: 9999px;
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: #fbbf24;
+  text-transform: uppercase;
+  margin-bottom: 20px;
+}
+
+.device-pulse-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #f59e0b;
+  box-shadow: 0 0 8px #f59e0b;
+  animation: devicePulse 1.8s ease-in-out infinite;
+}
+
+@keyframes devicePulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.4;
+    transform: scale(0.85);
+  }
+}
+
+.device-icon-wrap {
+  width: 76px;
+  height: 76px;
+  border-radius: 18px;
+  background: radial-gradient(circle at 50% 35%, rgba(245, 158, 11, 0.18), rgba(0, 240, 255, 0.06) 70%, transparent);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 18px;
+  color: #f59e0b;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+}
+
+.device-title {
+  font-family: var(--sans);
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: #ffffff;
+  margin: 0 0 10px;
+  line-height: 1.25;
+  text-transform: uppercase;
+  background: linear-gradient(135deg, #ffffff 60%, rgba(255, 255, 255, 0.75));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.device-desc {
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--ink-dim);
+  margin: 0 0 22px;
+  max-width: 410px;
+}
+
+.device-features {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 24px;
+}
+
+.device-feature-item {
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 12px;
+  padding: 12px 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 6px;
+}
+
+.device-feature-icon {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.device-feature-title {
+  font-family: var(--sans);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #ffffff;
+}
+
+.device-feature-detail {
+  font-size: 10px;
+  line-height: 1.35;
+  color: var(--ink-faint);
+}
+
+.device-actions {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.btn-primary-pc {
+  width: 100%;
+  min-height: 46px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  border: none;
+  color: #05080e;
+  font-family: var(--sans);
+  font-size: 13.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  box-shadow: 0 8px 24px rgba(245, 158, 11, 0.35);
+  transition: all 0.2s ease;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.btn-primary-pc:hover {
+  filter: brightness(1.08);
+  transform: translateY(-1px);
+  box-shadow: 0 12px 28px rgba(245, 158, 11, 0.45);
+}
+
+.btn-primary-pc:active {
+  transform: translateY(1px);
+}
+
+.btn-primary-pc.copied {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: #ffffff;
+  box-shadow: 0 8px 24px rgba(16, 185, 129, 0.4);
+}
+
+.btn-secondary-pc {
+  width: 100%;
+  min-height: 38px;
+  border-radius: 10px;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--ink-dim);
+  font-family: var(--sans);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.btn-secondary-pc:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.device-copy-toast {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: #34d399;
+  min-height: 18px;
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.device-copy-toast.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@media (max-width: 480px) {
+  .device-card {
+    padding: 24px 18px;
+    border-radius: 16px;
+  }
+  .device-title {
+    font-size: 20px;
+  }
+  .device-desc {
+    font-size: 12.5px;
+    margin-bottom: 16px;
+  }
+  .device-features {
+    grid-template-columns: 1fr;
+    gap: 8px;
+    margin-bottom: 20px;
+  }
+  .device-feature-item {
+    flex-direction: row;
+    text-align: left;
+    padding: 10px 12px;
+    gap: 12px;
+  }
+  .device-feature-icon {
+    font-size: 20px;
+  }
+}
+
+

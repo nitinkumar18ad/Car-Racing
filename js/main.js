@@ -18,6 +18,7 @@ import { Hud } from './hud.js';
 import { Game } from './game.js';
 import { createLighting, createScenery, createSky, updateShadowFrustum } from './scenery.js';
 import { loadModelAssets } from './models.js';
+import { initDeviceNotice } from './device.js';
 
 const MODE_STORAGE_KEY = 'car-racing-game:mode';
 
@@ -40,6 +41,8 @@ function switchMode(currentModeId) {
 }
 
 function start() {
+  initDeviceNotice();
+
   const canvas = document.getElementById('scene');
   const modeId = readModeId();
   const env = getEnvironment(modeId);
